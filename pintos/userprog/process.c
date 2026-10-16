@@ -178,8 +178,9 @@ process_exec (void *f_name) {
 	/* 먼저 지금 문맥을 없애요 */
 	process_cleanup ();
 
-	// 파일 이름을 파싱하여 파일이름과 arg들로 나눔
-	char *arg[64] = {0}; // arg
+	/* 명령줄을 공백 기준으로 쪼개요. arg[0]은 프로그램 이름이고, arg[1]부터 인수예요.
+	 * 명령줄은 128바이트까지라서 단어는 많아야 64개예요. 그래서 칸을 64개 잡았어요. */
+	char *arg[64] = {0};
 	int argc;
 	argc =  parse_words(arg,file_name," ");
 
@@ -211,7 +212,7 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: 힌트) process_wait (initd)를 하면 pintos가 종료돼요. process_wait를
 	 * XXX:       구현하기 전에는 여기에 무한 루프를
 	 * XXX:       넣어 두기를 추천해요. */
-	while (1) //TODO: 임시처리
+	while (1) /* TODO: 임시로 계속 기다려요. 진짜 wait를 만들면 바꿔요. */
 	{
 
 	}
@@ -481,7 +482,8 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 	/* 괜찮아요. */
 	return true;
 }
-// 파싱함수
+/* WORD를 PARSE_WORD에 든 구분자 기준으로 쪼개서 ARG에 차례로 담고, 단어 개수를 돌려줘요.
+ * strtok_r가 WORD 안의 구분자를 '\0'으로 바꿔요. ARG의 칸들은 새 문자열이 아니라 WORD 안을 가리켜요. */
 static int parse_words(char *arg[], char *word,const char *parse_word)
 {
 	char *token, *save_ptr;
