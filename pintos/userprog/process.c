@@ -26,6 +26,8 @@ static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
+static int parse_words(char *arg[], char *word,const char *parse_word);
+
 
 /* initd와 다른 프로세스들이 함께 쓰는 프로세스 초기화 함수예요. */
 static void
@@ -177,17 +179,9 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	// 파일 이름을 파싱하여 파일이름과 arg들로 나눔
-	char *token, *save_ptr;
-	int n = 0;
 	char *arg[64] = {0}; // arg
-
-	for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
-		token = strtok_r (NULL, " ", &save_ptr))
-	{
-		arg[n] = token;
-		n++;
-	}
-	int argc = n;
+	int argc;
+	argc =  parse_words(arg,file_name," ");
 
 	/* 그다음 바이너리를 불러와요 */
 	success = load (file_name, &_if);
@@ -486,6 +480,20 @@ validate_segment (const struct Phdr *phdr, struct file *file) {
 
 	/* 괜찮아요. */
 	return true;
+}
+// 파싱함수
+static int parse_words(char *arg[], char *word,const char *parse_word)
+{
+	char *token, *save_ptr;
+	int n = 0;
+	for (token = strtok_r (word, parse_word, &save_ptr); token != NULL;
+token = strtok_r (NULL, parse_word, &save_ptr))
+	{
+		arg[n] = token;
+		n++;
+	}
+
+	return n;
 }
 
 #ifndef VM
