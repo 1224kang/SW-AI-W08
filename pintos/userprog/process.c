@@ -176,6 +176,18 @@ process_exec (void *f_name) {
 	/* 먼저 지금 문맥을 없애요 */
 	process_cleanup ();
 
+	// 파일 이름을 파싱하여 파일이름과 arg들로 나눔
+	char *token, *save_ptr;
+	int n = 0;
+	char *arg[64] = {0}; // arg
+
+	for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+		token = strtok_r (NULL, " ", &save_ptr))
+	{
+		arg[n] = token;
+		n++;
+	}
+
 	/* 그다음 바이너리를 불러와요 */
 	success = load (file_name, &_if);
 
@@ -204,6 +216,11 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: 힌트) process_wait (initd)를 하면 pintos가 종료돼요. process_wait를
 	 * XXX:       구현하기 전에는 여기에 무한 루프를
 	 * XXX:       넣어 두기를 추천해요. */
+	while (1) //TODO: 임시처리
+	{
+
+	}
+
 	return -1;
 }
 
