@@ -184,6 +184,10 @@ process_exec (void *f_name) {
 	int argc;
 	argc =  parse_words(arg,file_name," ");
 
+	/* 스레드 이름을 프로그램 이름(arg[0])으로 바꿔요.
+	 * 처음 이름은 명령줄 앞 15글자라서, 그대로 두면 인수까지 섞여 있어요. */
+	 strlcpy (thread_current()->name, arg[0], sizeof thread_current()->name);
+
 	/* 그다음 바이너리를 불러와요 */
 	success = load (file_name, &_if);
 
