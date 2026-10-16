@@ -187,6 +187,7 @@ process_exec (void *f_name) {
 		arg[n] = token;
 		n++;
 	}
+	int argc = n;
 
 	/* 그다음 바이너리를 불러와요 */
 	success = load (file_name, &_if);
