@@ -55,9 +55,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			if(fd==1){
 				//버퍼에 저장된 size개의 문자를 콘솔에 출력
 				putbuf(buffer,size);
+				f->R.rax=size;
 			}
 			else{;}
-
 	}
 
 	printf ("system call!\n");
