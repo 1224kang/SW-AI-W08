@@ -73,12 +73,12 @@ main (void) {
 	/* Clear BSS and get machine's RAM size. */
 	bss_init ();
 
-	/* Break command line into arguments and parse options. */
+	/* 명령줄을 인자들로 나누고, 옵션들을 파싱한다. */
 	argv = read_command_line ();
 	argv = parse_options (argv);
 
-	/* Initialize ourselves as a thread so we can use locks,
-	   then enable console locking. */
+	/* 락을 쓸 수 있도록 우리 자신(지금 실행 중인 코드)을 스레드로 초기화하고,
+	 * 그다음 콘솔 락을 활성화한다. */
 	thread_init ();
 	console_init ();
 
@@ -140,9 +140,9 @@ bss_init (void) {
 	memset (&_start_bss, 0, &_end_bss - &_start_bss);
 }
 
-/* Populates the page table with the kernel virtual mapping,
- * and then sets up the CPU to use the new page directory.
- * Points base_pml4 to the pml4 it creates. */
+/* 페이지 테이블에 커널 가상 매핑을 채우고,
+ * 그다음 CPU가 새 페이지 디렉터리를 쓰도록 설정한다.
+ * 그리고 base_pml4가 이렇게 만든 pml4를 가리키게 한다. */
 static void
 paging_init (uint64_t mem_end) {
 	uint64_t *pml4, *pte;
@@ -252,8 +252,8 @@ run_task (char **argv) {
 	printf ("Execution of '%s' complete.\n", task);
 }
 
-/* Executes all of the actions specified in ARGV[]
-   up to the null pointer sentinel. */
+/* ARGV[]에 지정된 모든 액션을,
+널 포인터 센티널이 나올 때까지 실행한다. */
 static void
 run_actions (char **argv) {
 	/* An action. */

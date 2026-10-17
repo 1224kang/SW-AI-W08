@@ -43,8 +43,8 @@ init (void) {
 	}
 }
 
-/* Writes C to the VGA text display, interpreting control
-   characters in the conventional ways.  */
+/* 문자 C를 VGA 텍스트 디스플레이에 출력하며, 
+제어 문자(control characters)는 일반적인 방식에 따라 해석하여 처리합니다. */
 void
 vga_putc (int c) {
 	/* Disable interrupts to lock out interrupt handlers

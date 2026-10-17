@@ -7,6 +7,7 @@
 #include "userprog/gdt.h"
 #include "threads/flags.h"
 #include "intrinsic.h"
+#include <stdarg.h>
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -56,8 +57,19 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				//버퍼에 저장된 size개의 문자를 콘솔에 출력
 				putbuf(buffer,size);
 				f->R.rax=size;
+				break;
 			}
-			else{;}
+			else{break;}
+		
+		case SYS_EXIT:
+			int status=f->R.rdi;
+			char *filename=thread_current()->name;
+
+			//프로세스 종료시키기
+			
+			printf("%s: exit(%d)\n",filename,status);
+			
+			
 	}
 
 	printf ("system call!\n");

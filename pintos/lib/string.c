@@ -182,38 +182,44 @@ strstr (const char *haystack, const char *needle) {
 	return NULL;
 }
 
-/* Breaks a string into tokens separated by DELIMITERS.  The
-   first time this function is called, S should be the string to
-   tokenize, and in subsequent calls it must be a null pointer.
-   SAVE_PTR is the address of a `char *' variable used to keep
-   track of the tokenizer's position.  The return value each time
-   is the next token in the string, or a null pointer if no
-   tokens remain.
+/* 문자열 S를 DELIMITERS에 지정된 구분자를 기준으로 토큰으로 분리한다.
 
-   This function treats multiple adjacent delimiters as a single
-   delimiter.  The returned tokens will never be length 0.
-   DELIMITERS may change from one call to the next within a
-   single string.
+   이 함수를 처음 호출할 때는 S에 분리할 문자열을 전달해야 하며,
+   이후 호출에서는 NULL 포인터를 전달해야 한다.
 
-   strtok_r() modifies the string S, changing delimiters to null
-   bytes.  Thus, S must be a modifiable string.  String literals,
-   in particular, are *not* modifiable in C, even though for
-   backward compatibility they are not `const'.
+   SAVE_PTR은 토큰 분리 작업의 현재 위치를 추적하는 데 사용되는
+   `char *` 변수의 주소이다.
 
-   Example usage:
+   함수는 호출할 때마다 문자열의 다음 토큰을 반환하며,
+   더 이상 남은 토큰이 없으면 NULL 포인터를 반환한다.
+
+   이 함수는 연속된 여러 구분자를 하나의 구분자로 취급한다.
+   따라서 반환되는 토큰의 길이는 절대로 0이 되지 않는다.
+
+   하나의 문자열을 분리하는 도중에도 호출할 때마다
+   DELIMITERS를 변경할 수 있다.
+
+   strtok_r()은 문자열 S를 직접 수정하며,
+   구분자를 널 문자('\0')로 변경한다.
+
+   따라서 S는 수정 가능한 문자열이어야 한다.
+   특히 C에서 문자열 리터럴은 하위 호환성을 위해
+   const로 선언되어 있지 않더라도 수정할 수 없다.
+
+   사용 예시:
 
    char s[] = "  String to  tokenize. ";
    char *token, *save_ptr;
 
    for (token = strtok_r (s, " ", &save_ptr); token != NULL;
-   token = strtok_r (NULL, " ", &save_ptr))
-   printf ("'%s'\n", token);
+        token = strtok_r (NULL, " ", &save_ptr))
+     printf ("'%s'\n", token);
 
-outputs:
+   출력 결과:
 
-'String'
-'to'
-'tokenize.'
+   'String'
+   'to'
+   'tokenize.'
 */
 char *
 strtok_r (char *s, const char *delimiters, char **save_ptr) {
@@ -230,9 +236,8 @@ strtok_r (char *s, const char *delimiters, char **save_ptr) {
 
 	/* Skip any DELIMITERS at our current position. */
 	while (strchr (delimiters, *s) != NULL) {
-		/* strchr() will always return nonnull if we're searching
-		   for a null byte, because every string contains a null
-		   byte (at the end). */
+		/* 널 바이트('\0')를 찾는 경우, strchr()은 항상 NULL이 아닌 값을 반환한다.
+   			모든 문자열은 끝에 널 바이트('\0')를 포함하고 있기 때문이다. */
 		if (*s == '\0') {
 			*save_ptr = s;
 			return NULL;

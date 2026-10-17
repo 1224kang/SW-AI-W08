@@ -111,9 +111,10 @@ console_locked_by_current_thread (void) {
 			|| lock_held_by_current_thread (&console_lock));
 }
 
-/* The standard vprintf() function,
-   which is like printf() but uses a va_list.
-   Writes its output to both vga display and serial port. */
+/* 표준 vprintf() 함수입니다.
+ * printf()와 유사하지만, 인수를 va_list 형태로 전달받습니다.
+ * 출력 결과를 VGA 디스플레이와 시리얼 포트 모두에 출력합니다.
+ */
 int
 vprintf (const char *format, va_list args) {
 	int char_cnt = 0;
