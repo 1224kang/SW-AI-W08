@@ -339,6 +339,8 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* FILE_NAME의 ELF 실행 파일을 현재 스레드로 불러와요.
  * 실행 파일의 진입점(entry point)은 *RIP에,
  * 초기 스택 포인터는 *RSP에 저장해요.
+ * ARG와 ARGC는 process_exec에서 쪼갠 명령줄 단어들과 그 개수예요.
+ * 유저 스택에 인자를 쌓을 때 써요.
  * 성공하면 true, 아니면 false를 돌려줘요. */
 static bool
 load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
@@ -434,7 +436,11 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 	/* 시작 주소예요. */
 	if_->rip = ehdr.e_entry;
 
-	// 인자 전달
+	/* 명령줄 인자를 유저 스택에 쌓아요.
+	 * 다 쌓고 나면 if_->rsp는 가짜 돌아올 주소 칸을, if_->R.rsi는 argv[0] 칸을 가리켜요.
+	 * main(argc, argv)의 첫 번째 인자는 RDI로 들어가니까 argc를 넣어 둬요.
+	 * 지금 CPU 레지스터는 커널이 쓰고 있어서 intr_frame에 적어 두기만 해요.
+	 * 진짜 레지스터로는 do_iret이 유저 모드로 넘어갈 때 한꺼번에 옮겨 줘요. */
 	user_stack_args_push (arg, argc, if_);
 	if_->R.rdi = argc;
 
@@ -505,7 +511,10 @@ token = strtok_r (NULL, parse_word, &save_ptr))
 
 	return n;
 }
-// 유저 스택에 Push하는 함수
+
+/* ARG 문자열을 '\0'까지 통째로 유저 스택에 쌓고, 쌓은 바이트 수를 돌려줘요.
+ * 스택은 아래로 자라니까 if_->rsp를 먼저 내리고, 내려간 자리부터 복사해요.
+ * strlen은 '\0'을 세지 않아서 +1 했어요. */
 static int user_stack_push (char *arg, struct intr_frame *if_)
 {
 	size_t n = strlen(arg) + 1;
@@ -516,10 +525,27 @@ static int user_stack_push (char *arg, struct intr_frame *if_)
 	return (int)n;
 }
 
+/* 명령줄 인자들을 매뉴얼 Argument Passing 표와 같은 모양으로 유저 스택에 쌓아요.
+ * 높은 주소부터 낮은 주소 순서로 이렇게 쌓여요.
+ * 아래 주소는 'args-single onearg'를 돌려서 GDB로 확인한 값이에요.
+ *
+ *   0x4747fff4  "args-single\0"   문자열들
+ *   0x4747ffed  "onearg\0"
+ *   0x4747ffe8  00 00 00 00 00    8의 배수로 맞추는 빈칸
+ *   0x4747ffe0  0                 argv[argc], 끝 표시
+ *   0x4747ffd8  0x4747ffed        argv[1]
+ *   0x4747ffd0  0x4747fff4        argv[0]            <- if_->R.rsi
+ *   0x4747ffc8  0                 가짜 돌아올 주소   <- if_->rsp
+ */
 static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_)
 {
+	/* 문자열마다 유저 스택에 놓인 주소를 기억해 둬요.
+	 * 마지막 칸 save_ptr[argc]는 argv[argc] = 0 자리예요.
+	 * n은 지금까지 쌓은 문자열 바이트의 합이에요. */
 	char *save_ptr[argc + 1];
 	int n = 0;
+
+	/* 문자열을 하나씩 쌓아요. 쌓은 직후의 rsp가 그 문자열의 시작 주소예요. */
 	for (int i = 0; i < argc; i++)
 	{
 		n += user_stack_push (arg[i], if_);
@@ -527,21 +553,29 @@ static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_)
 	}
 	save_ptr[argc] = 0;
 
+	/* 다음에 쌓을 주소 칸들이 8바이트 경계에 오도록 0으로 빈칸을 채워요.
+	 * 출발점 USER_STACK이 8의 배수라서, 쌓은 바이트 합 n만 보면 빈칸 크기를 알 수 있어요.
+	 * 원본 없이 같은 값을 여러 칸 채우는 거라 memcpy가 아니라 memset을 써요. */
 	if (n % 8 != 0)
 	{
-		// 0이 8-(n%8) 만큼 채워진 데이터를 채움
 		if_->rsp -= (8 - (n % 8));
 		memset((void*) if_->rsp, 0, (8 - (n % 8)));
 	}
 
+	/* argv[argc]부터 argv[0]까지 거꾸로 주소를 쌓아요. 그래야 argv[0]이 가장 낮은 주소에 와요.
+	 * memcpy에는 save_ptr[i]가 가리키는 문자열이 아니라 save_ptr[i] 칸 자체(&save_ptr[i])를 넘겨요.
+	 * 옮기고 싶은 건 문자열이 아니라 주소 8바이트예요. */
 	for (int i = argc; i != -1; i--)
 	{
 		if_->rsp -= 8;
 		memcpy((char *) if_->rsp, (char *) &save_ptr[i], sizeof(char *));
 	}
+
+	/* 지금 rsp가 argv[0] 칸이에요. main의 두 번째 인자 argv는 RSI로 들어가요. */
 	if_->R.rsi = if_->rsp;
 
-	//돌아올 주소를 쌓음
+	/* 가짜 돌아올 주소예요. _start는 call로 불린 게 아니라서 돌아갈 곳이 없어요.
+	 * 그래도 보통 함수 호출과 스택 모양을 맞추려고 0을 8바이트 넣어 둬요. */
 	if_->rsp -= 8;
 	memset((void*) if_->rsp, 0, 8);
 }
