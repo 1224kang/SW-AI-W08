@@ -23,10 +23,13 @@
 #endif
 
 static void process_cleanup (void);
-static bool load (const char *file_name, struct intr_frame *if_);
+static bool load (const char *file_name, struct intr_frame *if_, char **arg, int argc);
 static void initd (void *f_name);
 static void __do_fork (void *);
 static int parse_words(char *arg[], char *word,const char *parse_word);
+static int user_stack_push (char *arg, struct intr_frame *if_);
+static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_);
+
 
 
 /* initd와 다른 프로세스들이 함께 쓰는 프로세스 초기화 함수예요. */
@@ -189,7 +192,7 @@ process_exec (void *f_name) {
 	 strlcpy (thread_current()->name, arg[0], sizeof thread_current()->name);
 
 	/* 그다음 바이너리를 불러와요 */
-	success = load (file_name, &_if);
+	success = load (file_name, &_if, arg, argc);
 
 	/* 불러오기에 실패하면 끝내요. */
 	palloc_free_page (file_name);
@@ -338,7 +341,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
  * 초기 스택 포인터는 *RSP에 저장해요.
  * 성공하면 true, 아니면 false를 돌려줘요. */
 static bool
-load (const char *file_name, struct intr_frame *if_) {
+load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 	struct thread *t = thread_current ();
 	struct ELF ehdr;
 	struct file *file = NULL;
@@ -431,8 +434,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* 시작 주소예요. */
 	if_->rip = ehdr.e_entry;
 
-	/* TODO: 여기에 코드를 써요.
-	 * TODO: 인자 전달(argument passing)을 구현해요 (project2/argument_passing.html 참고). */
+	// 인자 전달
+	user_stack_args_push (arg, argc, if_);
+	if_->R.rdi = argc;
 
 	success = true;
 
@@ -500,6 +504,46 @@ token = strtok_r (NULL, parse_word, &save_ptr))
 	}
 
 	return n;
+}
+// 유저 스택에 Push하는 함수
+static int user_stack_push (char *arg, struct intr_frame *if_)
+{
+	size_t n = strlen(arg) + 1;
+	if_->rsp -= n;
+	void *user_rsp = (void *)if_->rsp;
+
+	memcpy(user_rsp, arg, n);
+	return (int)n;
+}
+
+static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_)
+{
+	char *save_ptr[argc + 1];
+	int n = 0;
+	for (int i = 0; i < argc; i++)
+	{
+		n += user_stack_push (arg[i], if_);
+		save_ptr[i] = (char*) if_->rsp;
+	}
+	save_ptr[argc] = 0;
+
+	if (n % 8 != 0)
+	{
+		// 0이 8-(n%8) 만큼 채워진 데이터를 채움
+		if_->rsp -= (8 - (n % 8));
+		memset((void*) if_->rsp, 0, (8 - (n % 8)));
+	}
+
+	for (int i = argc; i != -1; i--)
+	{
+		if_->rsp -= 8;
+		memcpy((char *) if_->rsp, (char *) &save_ptr[i], sizeof(char *));
+	}
+	if_->R.rsi = if_->rsp;
+
+	//돌아올 주소를 쌓음
+	if_->rsp -= 8;
+	memset((void*) if_->rsp, 0, 8);
 }
 
 #ifndef VM
