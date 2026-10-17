@@ -21,6 +21,7 @@
 **/output/
 # core dump
 core
+scripts/
 
 # 임시 파일
 *~

@@ -64,11 +64,15 @@ file_get_inode (struct file *file) {
 	return file->inode;
 }
 
-/* Reads SIZE bytes from FILE into BUFFER,
- * starting at the file's current position.
- * Returns the number of bytes actually read,
- * which may be less than SIZE if end of file is reached.
- * Advances FILE's position by the number of bytes read. */
+/* FILE의 현재 위치부터 시작하여
+ * SIZE바이트의 데이터를 읽어 BUFFER에 저장합니다.
+ *
+ * 실제로 읽은 바이트 수를 반환합니다.
+ * 파일의 끝(EOF)에 도달하면 실제로 읽은 바이트 수가
+ * SIZE보다 작을 수 있습니다.
+ *
+ * 읽은 바이트 수만큼 FILE의 현재 위치를 이동시킵니다.
+ */
 off_t
 file_read (struct file *file, void *buffer, off_t size) {
 	off_t bytes_read = inode_read_at (file->inode, buffer, size, file->pos);
@@ -86,13 +90,18 @@ file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs) {
 	return inode_read_at (file->inode, buffer, size, file_ofs);
 }
 
-/* Writes SIZE bytes from BUFFER into FILE,
- * starting at the file's current position.
- * Returns the number of bytes actually written,
- * which may be less than SIZE if end of file is reached.
- * (Normally we'd grow the file in that case, but file growth is
- * not yet implemented.)
- * Advances FILE's position by the number of bytes read. */
+/* FILE의 현재 위치부터 시작하여
+ * BUFFER에서 SIZE바이트의 데이터를 FILE에 기록합니다.
+ *
+ * 실제로 기록한 바이트 수를 반환합니다.
+ * 파일의 끝(EOF)에 도달하면 실제로 기록한 바이트 수가
+ * SIZE보다 작을 수 있습니다.
+ *
+ * (일반적으로 이런 경우 파일 크기를 확장하지만,
+ * 아직 파일 크기 확장 기능이 구현되어 있지 않습니다.)
+ *
+ * 읽은 바이트 수만큼 FILE의 현재 위치를 이동시킵니다.
+ */
 off_t
 file_write (struct file *file, const void *buffer, off_t size) {
 	off_t bytes_written = inode_write_at (file->inode, buffer, size, file->pos);
