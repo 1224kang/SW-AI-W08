@@ -63,15 +63,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		
 		case SYS_EXIT:
 			int status=f->R.rdi;
+			thread_current()->exit_status=status;
 			char *filename=thread_current()->name;
 
 			//프로세스 종료시키기
-			
-			printf("%s: exit(%d)\n",filename,status);
-			
+			thread_exit ();			
 			
 	}
 
-	printf ("system call!\n");
-	thread_exit ();
+	// printf ("system call!\n");
+	// thread_exit ();
 }

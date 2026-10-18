@@ -108,6 +108,9 @@ struct thread {
 	int recent_cpu;						// recent_cpu 정의 (각 프로세스가 최근에 cpu 시간을 얼마나 사용했는지)
 	struct list_elem allelem;			// all_list에 넣기 위함
 
+	int exit_status; 
+	
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
