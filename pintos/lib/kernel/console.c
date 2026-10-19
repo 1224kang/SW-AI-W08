@@ -111,9 +111,10 @@ console_locked_by_current_thread (void) {
 			|| lock_held_by_current_thread (&console_lock));
 }
 
-/* The standard vprintf() function,
-   which is like printf() but uses a va_list.
-   Writes its output to both vga display and serial port. */
+/* 표준 vprintf() 함수입니다.
+ * printf()와 유사하지만, 인수를 va_list 형태로 전달받습니다.
+ * 출력 결과를 VGA 디스플레이와 시리얼 포트 모두에 출력합니다.
+ */
 int
 vprintf (const char *format, va_list args) {
 	int char_cnt = 0;
@@ -138,7 +139,7 @@ puts (const char *s) {
 	return 0;
 }
 
-/* Writes the N characters in BUFFER to the console. */
+/* BUFFER에 저장된 N개의 문자를 콘솔에 출력합니다. */
 void
 putbuf (const char *buffer, size_t n) {
 	acquire_console ();
@@ -165,9 +166,10 @@ vprintf_helper (char c, void *char_cnt_) {
 	putchar_have_lock (c);
 }
 
-/* Writes C to the vga display and serial port.
-   The caller has already acquired the console lock if
-   appropriate. */
+/* 문자 C를 VGA 디스플레이와 시리얼 포트에 출력합니다.
+ * 필요한 경우 호출자는 이미 콘솔 락(console lock)을
+ * 획득한 상태입니다.
+ */
 static void
 putchar_have_lock (uint8_t c) {
 	ASSERT (console_locked_by_current_thread ());

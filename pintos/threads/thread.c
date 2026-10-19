@@ -298,7 +298,7 @@ thread_tid (void) {
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
-thread_exit (void) {
+thread_exit () {
 	ASSERT (!intr_context ());
 
 #ifdef USERPROG
@@ -589,6 +589,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->my_priority = priority;           // 원래 우선순위 백업 
     t->lock_to_stop = NULL;              // 대기 중인 락 
     list_init (&t->donation_list);       // 기부자 리스트 초기화
+
 	
 	if (thread_mlfqs == true) {
         if (t == initial_thread) {
