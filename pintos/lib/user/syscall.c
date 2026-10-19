@@ -15,6 +15,7 @@ static __inline int64_t syscall (uint64_t num_, uint64_t a1_, uint64_t a2_,
 	register uint64_t *a6 asm ("r9") = (uint64_t *) a6_;
 
 	__asm __volatile(
+			//각 레지스터에 값 저장 
 			"mov %1, %%rax\n"
 			"mov %2, %%rdi\n"
 			"mov %3, %%rsi\n"

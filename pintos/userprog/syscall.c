@@ -64,7 +64,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_EXIT:
 			int status=f->R.rdi;
 			thread_current()->exit_status=status;
-			char *filename=thread_current()->name;
 
 			//프로세스 종료시키기
 			thread_exit ();			
@@ -81,11 +80,51 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		// case SYS_REMOVE:
 
-		// case SYS_OPEN:
+		case SYS_OPEN: {
+			char* file_name=f->R.rdi;
+			struct file* file=filesys_open(file_name);
+			if(file==NULL){
+				f->R.rax=-1;
+				break;
+			}
+
+			struct fd_table *fdt=thread_current()->fdt;
+			
+			//새로운 fdt 할당 
+			struct file_fd_mapping *new_fd=malloc(sizeof(struct file_fd_mapping));
+			if(new_fd==NULL){ //malloc 실패
+				f->R.rax=-1;
+				break;
+			}
+			new_fd->index=fdt->next_fd_index;
+			new_fd->mapping_file=file;
+			list_push_back(&fdt->fd_list,&new_fd->file_fd_elem);
+
+			//인덱스 하나 추가 
+			fdt->next_fd_index+=1;
+			//반환값
+			f->R.rax=new_fd->index;
+		}
+		
+
 
 		// case SYS_CLOSE:
 
-		// case SYS_READ:
+		case SYS_READ: {
+		
+			// int fd=f->R.rdi;
+			// void *buffer=f->R.rsi;
+			// unsigned size=f->R.rdx;
+
+			// //실제로 읽은 바이트 수 
+			// int bytes_read=0;
+			// if (fd==0){
+			// 	input_getc();
+			// }
+			// if (fd==2){
+				
+			// }
+		}
 
 		// case SYS_WAIT:
 
