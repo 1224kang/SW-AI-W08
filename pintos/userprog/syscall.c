@@ -88,6 +88,11 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_OPEN: {
 			char* file_name=f->R.rdi;
+			if(file_name==NULL){
+				f->R.rax=-1;
+				break;
+			}
+			
 			struct file* file=filesys_open(file_name);
 			if(file==NULL){
 				f->R.rax=-1;
