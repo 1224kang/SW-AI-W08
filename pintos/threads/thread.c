@@ -74,6 +74,7 @@ bool priority_sort(const struct list_elem *,const struct list_elem *, void *aux 
 void thread_preemption(void);
 
 void priority_thread_yield(void);
+struct lock process_lock;
 
 int load_avg;
 
@@ -121,6 +122,7 @@ thread_init (void) {
 
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
+	lock_init (&process_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
 	list_init (&all_list);	// all_list 초기화
@@ -593,6 +595,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->my_priority = priority;           // 원래 우선순위 백업 
     t->lock_to_stop = NULL;              // 대기 중인 락 
     list_init (&t->donation_list);       // 기부자 리스트 초기화
+	list_init (&t->child_record_list);
 
 	// t->fdt=malloc(sizeof(struct fd_table));
 	// if (t->fdt != NULL) {
