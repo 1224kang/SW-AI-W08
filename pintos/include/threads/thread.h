@@ -108,7 +108,11 @@ struct thread {
 	int recent_cpu;						// recent_cpu 정의 (각 프로세스가 최근에 cpu 시간을 얼마나 사용했는지)
 	struct list_elem allelem;			// all_list에 넣기 위함
 
-	int exit_status; 
+	/* process_wait용 (#113) */
+	struct list child_record_list;		// 내가 만든 자식들의 기록(struct record) 목록. 안에 든 건 thread가 아니라 기록이에요
+	struct thread *parents;				// 나를 만든 부모. 부모가 먼저 끝나면 NULL(고아 표시)이 돼요
+	bool exit_called;					// SYS_EXIT로 끝났으면 true. false면 예외로 죽은 거라 종료 코드를 -1로 봐요
+	int exit_status;					// exit()에 넘긴 종료 코드
 
 	struct fd_table *fdt;
 	
@@ -184,5 +188,8 @@ void mlfqs_recalculate_all_priority (void);
 void mlfqs_recalculate_all_recent_cpu (void);
 
 void do_iret (struct intr_frame *tf);
+/* 자식 기록 리스트와 parent 포인터를 지키는 전역 락이에요. 본체는 thread.c에 하나만 있어요.
+   리스트에 넣고 빼는 곳, 자식이 부모 리스트를 도는 곳은 모두 이 락 안에서 해요. */
+extern struct lock process_lock;
 
 #endif /* threads/thread.h */

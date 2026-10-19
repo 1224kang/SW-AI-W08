@@ -8,6 +8,8 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include <stdarg.h>
+#include "threads/init.h"  //poweroff 함수 받아오기 위한 매크로
+#include "filesys/file.h"  //filesize + file 관련 함수 받아오기 위한 매크로
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -68,13 +70,17 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			//프로세스 종료시키기
 			thread_exit ();			
 		
-		// case SYS_HALT:
+		case SYS_HALT:
+			power_off(); 
+			break;
 
-		// case SYS_FILESIZE:
+		//case SYS_FILESIZE:/*open 구현 이후 들어가기*/
+			
+			
 
 		// case SYS_SEEK:
 
-		// case SYS_TELL:
+		//case SYS_TELL:
 
 		// case SYS_CREATE:
 
