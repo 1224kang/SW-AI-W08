@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "threads/malloc.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -202,6 +203,7 @@ tid_t
 thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
 	struct thread *t;
+	struct record *r;
 	tid_t tid;
 
 	ASSERT (function != NULL);
@@ -210,10 +212,19 @@ thread_create (const char *name, int priority,
 	t = palloc_get_page (PAL_ZERO);
 	if (t == NULL)
 		return TID_ERROR;
+	r = malloc(sizeof(struct record));
+	if (r == NULL)
+	{
+		palloc_free_page(t);
+		return TID_ERROR;
+	}
 
 	/* Initialize thread. */
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
+	r->tid = tid;
+	r->child_address = t;
+	sema_init(&r->process_sema,0);
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
@@ -225,6 +236,11 @@ thread_create (const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
+	t->parents = thread_current();
+
+	lock_acquire(&process_lock);
+	list_push_back(&thread_current()->child_record_list, &r->child_elem);
+	lock_release(&process_lock);
 
 	/* Add to run queue. */
 	thread_unblock (t);
