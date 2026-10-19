@@ -68,6 +68,30 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 			//프로세스 종료시키기
 			thread_exit ();			
+		
+		// case SYS_HALT:
+
+		// case SYS_FILESIZE:
+
+		// case SYS_SEEK:
+
+		// case SYS_TELL:
+
+		// case SYS_CREATE:
+
+		// case SYS_REMOVE:
+
+		// case SYS_OPEN:
+
+		// case SYS_CLOSE:
+
+		// case SYS_READ:
+
+		// case SYS_WAIT:
+
+		// case SYS_EXEC:
+
+		// case SYS_FORK:
 			
 	}
 
