@@ -146,7 +146,16 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break; //case 빠져나감 (못 찾았으면 아무것도 안 하고 여기로)
 		}
 
-		//case SYS_TELL:
+		case SYS_TELL:{
+			int fd=f->R.rdi;
+			struct fd_table *fdt=thread_current()->fdt; //현재 프로세스의 fd 테이블
+			struct list_elem *e; //fd_list를 돌 때 쓰는 고리 포인터
+			for(e = list_begin(&fdt->fd_list); e != list_end(&fdt->fd_list); e=list_next(e)){
+				struct file_fd_mapping *fm = list_entry(e, struct file_fd_mapping, file_fd_elem); 
+
+			}
+
+		}
 
 		case SYS_CREATE: {
 			char* file_name=f->R.rdi;
