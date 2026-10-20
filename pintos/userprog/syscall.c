@@ -80,10 +80,25 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			power_off(); 
 			break;
 
-		//case SYS_FILESIZE:/*open 구현 이후 들어가기*/
-			
-			
+		case SYS_FILESIZE:{/*open 구현 이후 들어가기*/
+			struct fd_table *fdt=thread_current()->fdt;
+			struct list_elem *e;
+			struct file_fd_mapping *found = NULL; //말그대로 찾았을때 값 반환
 
+			int fd=f->R.rdi; 
+
+			for(e = list_begin(&fdt->fd_list); e != list_end(&fdt->fd_list); e = list_next(e)){  //1. e에 리스트 초기값을 받는다 > 2. e가 리스트
+				struct file_fd_mapping *fm = list_entry(e, struct file_fd_mapping, file_fd_elem);	
+				if(fm->index == fd){
+					found = fm;  //일치하다면 found에 일치한 값 저장
+					break;
+				}
+			}
+			if(found == NULL) f->R.rax = -1;  
+			else f->R.rax = file_length(found->mapping_file);
+			
+			break;
+		}
 		// case SYS_SEEK:
 
 		//case SYS_TELL:

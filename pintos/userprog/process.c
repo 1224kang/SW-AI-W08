@@ -323,10 +323,16 @@ process_exit () {
 
 	/* 3) 종료 메시지예요.
 	 * 부모가 없는 프로세스는 위 1)을 통째로 건너뛰니까, 여기서 한 번 더 -1을 정해요.
-	 * 지금은 커널 스레드가 끝날 때도 찍혀서 threads 테스트가 FAIL이에요 (#119). */
+	 *
+	 * 메시지는 유저 프로세스일 때만 찍어요. 커널 스레드가 끝날 때는 찍지 않아요 (#119).
+	 * 둘은 pml4로 구분해요. 유저 프로세스만 load에서 pml4_create로 자기 페이지 테이블을 가지고,
+	 * 커널 스레드는 thread_create가 PAL_ZERO로 받은 페이지라 pml4가 NULL이에요.
+	 * thread_tick도 같은 기준(pml4 != NULL)으로 user_ticks를 세요.
+	 * 아래 process_cleanup이 pml4를 NULL로 지우니까, 이 검사는 그보다 먼저 해야 해요.
+	 * halt는 power_off로 기계째 꺼져서 여기까지 오지 않아요. 그래서 따로 막을 필요가 없어요. */
 	char *filename=curr->name;
 	if (curr->exit_called != true) exit_code = -1;
-	printf("%s: exit(%d)\n",filename, exit_code);
+	if (curr->pml4 != NULL) printf("%s: exit(%d)\n",filename, exit_code);
 
 	process_cleanup ();
 }
