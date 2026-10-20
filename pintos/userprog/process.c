@@ -283,6 +283,18 @@ process_exit () {
 	}
 	lock_release(&process_lock);
 
+	lock_acquire(&process_lock);
+
+	struct list *l = &curr->child_record_list;
+	while (!list_empty (l)) {
+		struct list_elem *e = list_pop_front (l);
+		struct record *r = list_entry (e, struct record, child_elem);
+		if (r->child_address != NULL) r->child_address->parents = NULL;
+		free(r);
+	}
+
+	lock_release(&process_lock);
+
 	char *filename=curr->name;
 	printf("%s: exit(%d)\n",filename, exit_code);
 
