@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include "threads/init.h"  //poweroff 함수 받아오기 위한 매크로
 #include "filesys/file.h"  //filesize + file 관련 함수 받아오기 위한 매크로
+#include "userprog/process.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -140,6 +141,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		}
 
 		// case SYS_WAIT:
+	case SYS_WAIT:
+		{
+			tid_t tid = f->R.rdi;
+			int result = process_wait(tid);
+			f->R.rax = result;
+			break;
+		}
 
 		// case SYS_EXEC:
 
