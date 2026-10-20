@@ -18,6 +18,8 @@
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
+void sys_exit(int status);
+
 
 /* 시스템 콜(System Call).
  *
@@ -70,12 +72,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		
 		case SYS_EXIT:
 			int status=f->R.rdi;
-			thread_current()->exit_status=status;
-			thread_current()->exit_called=true;	// 정상 종료 표시. process_exit에서 이게 false면 예외로 죽은 거라 -1로 봐요
+			sys_exit(status);
 
-			//프로세스 종료시키기
-			thread_exit ();			
-		
 		case SYS_HALT:
 			power_off(); 
 			break;
@@ -202,7 +200,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		fn_copy = palloc_get_page (0);
 		strlcpy(fn_copy, (char*)f->R.rdi, PGSIZE);
 
-		process_exec(fn_copy);
+		int result = process_exec(fn_copy);
+		if (result == -1) sys_exit(-1);
 		break;
 	}
 
@@ -212,4 +211,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 	// printf ("system call!\n");
 	// thread_exit ();
+}
+
+void sys_exit(int status)
+{
+	thread_current()->exit_status=status;
+	thread_current()->exit_called=true;	// 정상 종료 표시. process_exit에서 이게 false면 예외로 죽은 거라 -1로 봐요
+
+	//프로세스 종료시키기
+	thread_exit ();
 }
