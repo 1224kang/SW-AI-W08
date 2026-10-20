@@ -198,6 +198,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			bool found=false;
 
 			struct list *fd_list=&thread_current()->fdt->fd_list;
+			if(fd_list==NULL){
+				break;
+			}
 			struct list_elem *e=list_begin(fd_list);
 
 			//실제로 읽은 바이트 수 
