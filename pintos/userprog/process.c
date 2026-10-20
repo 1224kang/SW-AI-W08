@@ -559,10 +559,11 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 	if_->R.rdi = argc;
 
 	success = true;
+	file_deny_write(file);
 
 done:
 	/* 불러오기가 성공하든 실패하든 여기로 와요. */
-	file_close (file);
+	if (success == false) file_close (file);
 	return success;
 }
 
