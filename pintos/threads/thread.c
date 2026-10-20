@@ -130,6 +130,7 @@ thread_init (void) {
 	init_thread (initial_thread, "main", PRI_DEFAULT);
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
+	
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -278,11 +279,14 @@ struct thread *
 thread_current (void) {
 	struct thread *t = running_thread ();
 
-	/* Make sure T is really a thread.
-	   If either of these assertions fire, then your thread may
-	   have overflowed its stack.  Each thread has less than 4 kB
-	   of stack, so a few big automatic arrays or moderate
-	   recursion can cause stack overflow. */
+	/* T가 실제로 유효한 스레드인지 확인합니다.
+   이 두 ASSERT 중 하나라도 실패한다면, 해당 스레드에서
+   스택 오버플로가 발생했을 가능성이 있습니다.
+
+   각 스레드는 4KB 미만의 스택 공간을 가지므로,
+   크기가 큰 지역 배열을 몇 개 선언하거나
+   재귀 호출을 어느 정도 반복하는 것만으로도
+   스택 오버플로가 발생할 수 있습니다. */
 	ASSERT (is_thread (t));
 	ASSERT (t->status == THREAD_RUNNING);
 
@@ -590,6 +594,10 @@ init_thread (struct thread *t, const char *name, int priority) {
     t->lock_to_stop = NULL;              // 대기 중인 락 
     list_init (&t->donation_list);       // 기부자 리스트 초기화
 
+	// t->fdt=malloc(sizeof(struct fd_table));
+	// if (t->fdt != NULL) {
+    // 	fd_table_init(t->fdt); //fd_table 구조체 초기화
+	// } 			 
 	
 	if (thread_mlfqs == true) {
         if (t == initial_thread) {
@@ -604,6 +612,11 @@ init_thread (struct thread *t, const char *name, int priority) {
 	}
 	list_push_back(&all_list, &t->allelem);
 
+}
+
+fd_table_init(struct fd_table *t){
+	list_init(&t->fd_list);
+	t->next_fd_index=2;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

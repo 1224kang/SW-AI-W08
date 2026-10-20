@@ -21,6 +21,7 @@
 #ifdef VM
 #include "vm/vm.h"
 #endif
+#include "devices/timer.h"
 
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_, char **arg, int argc);
@@ -36,6 +37,11 @@ static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_)
 static void
 process_init (void) {
 	struct thread *current = thread_current ();
+
+	current->fdt=malloc(sizeof(struct fd_table));
+	if (current->fdt != NULL) {
+    	fd_table_init(current->fdt); //fd_table 구조체 초기화
+	} 	
 }
 
 /* FILE_NAME에서 불러온 첫 번째 유저 프로그램 "initd"를 시작해요.
@@ -219,12 +225,8 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: 힌트) process_wait (initd)를 하면 pintos가 종료돼요. process_wait를
 	 * XXX:       구현하기 전에는 여기에 무한 루프를
 	 * XXX:       넣어 두기를 추천해요. */
-	while (1) /* TODO: 임시로 계속 기다려요. 진짜 wait를 만들면 바꿔요. */
-	{
+	timer_sleep(100);
 
-	}
-
-	return -1;
 }
 
 

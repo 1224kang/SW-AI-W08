@@ -113,6 +113,8 @@ struct thread {
 	struct thread *parents;				// 나를 만든 부모. 부모가 먼저 끝나면 NULL(고아 표시)이 돼요
 	bool exit_called;					// SYS_EXIT로 끝났으면 true. false면 예외로 죽은 거라 종료 코드를 -1로 봐요
 	int exit_status;					// exit()에 넘긴 종료 코드
+
+	struct fd_table *fdt;
 	
 
 #ifdef USERPROG
@@ -128,6 +130,17 @@ struct thread {
 	/* Owned by thread.c. */
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
+};
+
+struct fd_table {
+	struct list fd_list; //해당 프로세스가 열어둔 파일들의 목록
+	int next_fd_index; //다음에 할당받을 fd index
+};
+
+struct file_fd_mapping{
+	int index; //파일에 할당된 fd 번호
+	struct file *mapping_file; //매핑된 실제 파일 포인터 
+	struct list_elem file_fd_elem; //fd_list에 연결하기 위한 고리
 };
 
 /* If false (default), use round-robin scheduler.
