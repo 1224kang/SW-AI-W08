@@ -267,13 +267,13 @@ process_exit () {
 	{
 		struct list *parents = &curr->parents->child_record_list;
 		if (list_empty(parents) == true) PANIC("process_exit: no record for tid %d in parent's list", curr->tid);
-
 		struct list_elem *e;
 		for (e = list_begin (parents); e != list_end (parents);
 			 e = list_next (e)) {
 			struct record *r = list_entry (e, struct record, child_elem);
 			if (r->tid == curr->tid)
 			{
+				if (r->child_address->exit_called == false) exit_code = -1;
 				r->child_address = NULL;
 				r->status = exit_code;
 				sema_up(&r->process_sema);
@@ -296,6 +296,7 @@ process_exit () {
 	lock_release(&process_lock);
 
 	char *filename=curr->name;
+	if (curr->exit_called != true) exit_code = -1;
 	printf("%s: exit(%d)\n",filename, exit_code);
 
 	process_cleanup ();

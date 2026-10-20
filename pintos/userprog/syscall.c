@@ -66,6 +66,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_EXIT:
 			int status=f->R.rdi;
 			thread_current()->exit_status=status;
+			thread_current()->exit_called=true;
 
 			//프로세스 종료시키기
 			thread_exit ();			
