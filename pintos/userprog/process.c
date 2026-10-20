@@ -175,7 +175,8 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	bool success;
+	struct thread *curr = thread_current();
+	bool success, initd = false;
 
 	/* 여기서는 thread 구조체 안의 intr_frame을 쓸 수 없어요.
 	 * 현재 스레드가 다시 스케줄될 때
@@ -184,6 +185,8 @@ process_exec (void *f_name) {
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
+
+	if (curr->pml4 == NULL) initd = true;
 
 	/* 먼저 지금 문맥을 없애요 */
 	process_cleanup ();
@@ -196,7 +199,7 @@ process_exec (void *f_name) {
 
 	/* 스레드 이름을 프로그램 이름(arg[0])으로 바꿔요.
 	 * 처음 이름은 명령줄 앞 15글자라서, 그대로 두면 인수까지 섞여 있어요. */
-	 strlcpy (thread_current()->name, arg[0], sizeof thread_current()->name);
+	 if (initd == true) strlcpy (curr->name, arg[0], sizeof curr->name);
 
 	/* 그다음 바이너리를 불러와요 */
 	success = load (file_name, &_if, arg, argc);
