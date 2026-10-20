@@ -115,6 +115,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			fdt->next_fd_index+=1;
 			//반환값
 			f->R.rax=new_fd->index;
+			break;
 		}
 		
 
