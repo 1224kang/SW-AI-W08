@@ -282,6 +282,7 @@ process_wait (tid_t child_tid) {
 void
 process_exit () {
 	struct thread *curr = thread_current ();
+	file_close(curr->running_file);
 	/* wait 쪽 정리를 세 덩어리로 해요.
 	 * 1) 자식 몫: 부모 리스트에서 내 기록을 찾아 종료 코드를 남기고 부모를 깨워요.
 	 * 2) 부모 몫: 내가 만든 자식들의 기록을 전부 free하고, 살아 있는 자식은 고아로 표시해요.
@@ -476,7 +477,6 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-	t->running_file = file;
 
 	/* 실행 파일 헤더를 읽고 검사해요. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -546,6 +546,9 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 	/* 스택을 준비해요. */
 	if (!setup_stack (if_))
 		goto done;
+
+	if (t->running_file != NULL) file_close(t->running_file);
+	t->running_file = file;
 
 	/* 시작 주소예요. */
 	if_->rip = ehdr.e_entry;
