@@ -17,6 +17,7 @@
 #include "threads/thread.h"
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #include "intrinsic.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -218,15 +219,47 @@ process_exec (void *f_name) {
  * 그 TID로 process_wait()이 이미 한 번 성공적으로 불렸다면
  * 기다리지 않고 바로 -1을 돌려줘요.
  *
- * 이 함수는 문제 2-2에서 구현해요. 지금은
- * 아무 일도 안 해요. */
+ * 지금 스레드의 child_record_list에서 TID의 기록(struct record)을 찾고,
+ * 그 기록의 세마포어에서 자식이 끝나기를 기다려요.
+ * 깨어나면 자식이 남긴 종료 코드를 읽고 기록을 빼서 free해요.
+ * 그래서 같은 TID로 두 번째 wait하면 기록을 못 찾아서 -1이 돼요. */
 int
-process_wait (tid_t child_tid UNUSED) {
-	/* XXX: 힌트) process_wait (initd)를 하면 pintos가 종료돼요. process_wait를
-	 * XXX:       구현하기 전에는 여기에 무한 루프를
-	 * XXX:       넣어 두기를 추천해요. */
-	timer_sleep(100);
+process_wait (tid_t child_tid) {
+	//timer_sleep(100);
+	int exit_code = 0;
 
+	struct thread *curr = thread_current();
+	struct list *l = &curr->child_record_list;
+	if (list_empty(l) == true) return -1;
+
+	/* 기록을 찾는 동안은 락을 안 잡아요.
+	 * 이 리스트에 원소를 넣고 빼는 건 지금 스레드(부모) 자신뿐이고,
+	 * 자식은 기록 안의 값만 바꿔요. 찾을 때 보는 tid는 안 바뀌는 값이에요. */
+	struct list_elem *e;
+	bool found = false;		// break로 빠져나왔는지, 끝까지 돌았는지 구분해요
+	for (e = list_begin (l); e != list_end (l);
+		 e = list_next (e)) {
+		struct record *r = list_entry (e, struct record, child_elem);
+		if (r->tid == child_tid) {
+			/* 자식이 process_exit에서 sema_up할 때까지 여기서 잠들어요.
+			 * 락을 잡은 채 잠들면 자식이 락을 못 잡아서 sema_up을 못 해요.
+			 * 그래서 락은 깨어난 다음에 잡아요. */
+			sema_down(&r->process_sema);
+			lock_acquire(&process_lock);
+
+			exit_code =  r->status;
+			/* list_remove 다음에 바로 break로 나가니까,
+			 * 빠진 e로 list_next를 부를 일이 없어요.
+			 * free는 e(list_elem)가 아니라 바깥 구조체 r에 해야 해요. */
+			list_remove(e);
+			free(r);
+			lock_release(&process_lock);
+			found = true;
+			break;
+		}
+	}
+	if (found == false) return -1;	// 내 자식이 아니거나, 이미 wait한 tid예요
+	return exit_code;
 }
 
 
@@ -234,12 +267,66 @@ process_wait (tid_t child_tid UNUSED) {
 void
 process_exit () {
 	struct thread *curr = thread_current ();
-	/* TODO: 여기에 코드를 써요.
-	 * TODO: 프로세스 종료 메시지를 구현해요
-	 * TODO: (project2/process_termination.html 참고).
-	 * TODO: 프로세스 자원 정리도 여기서 구현하기를 추천해요. */
+	/* wait 쪽 정리를 세 덩어리로 해요.
+	 * 1) 자식 몫: 부모 리스트에서 내 기록을 찾아 종료 코드를 남기고 부모를 깨워요.
+	 * 2) 부모 몫: 내가 만든 자식들의 기록을 전부 free하고, 살아 있는 자식은 고아로 표시해요.
+	 * 3) 종료 메시지를 찍어요. SYS_EXIT 없이 죽었으면(예외) 종료 코드는 -1이에요.
+	 * 파일 같은 다른 프로세스 자원 정리는 아직 여기 없어요. */
+	int exit_code = curr->exit_status;
+
+	/* 1) 자식 몫이에요.
+	 * curr->parents는 부모가 끝날 때(아래 2번) 락 안에서 NULL로 바뀌어요.
+	 * 그래서 NULL인지 보는 것부터 락 안에서 해야 해요.
+	 * 락 밖에서 보면, 확인한 다음 락을 잡기 전에 부모가 끝나 버릴 수 있어요. */
+	lock_acquire(&process_lock);
+	if (curr->parents != NULL)
+	{
+		struct list *parents = &curr->parents->child_record_list;	// 부모가 가진 자식 기록 리스트예요
+		/* 부모가 있으면 내 기록도 있어야 해요(thread_create에서 넣으니까).
+		 * 리스트가 통째로 비었을 때만 잡는 안전장치예요. */
+		if (list_empty(parents) == true) PANIC("process_exit: no record for tid %d in parent's list", curr->tid);
+		struct list_elem *e;
+		for (e = list_begin (parents); e != list_end (parents);
+			 e = list_next (e)) {
+			struct record *r = list_entry (e, struct record, child_elem);
+			if (r->tid == curr->tid)
+			{
+				/* 여기서 r->child_address는 지금 끝나는 나 자신이에요.
+				 * NULL로 지우기 전에 읽어야 하고,
+				 * -1을 먼저 정한 다음에 기록에 써야 부모의 wait도 -1을 받아요. */
+				if (r->child_address->exit_called == false) exit_code = -1;
+				r->child_address = NULL;		// 자식이 끝났다는 표시예요
+				r->status = exit_code;
+				sema_up(&r->process_sema);
+				break;
+			}
+		  }
+	}
+	lock_release(&process_lock);
+
+	/* 2) 부모 몫이에요.
+	 * 기록을 전부 free하니까 list_pop_front로 하나씩 꺼내요.
+	 * 다음 원소는 매번 리스트 머리에서 다시 꺼내서, free한 원소를 다시 볼 일이 없어요.
+	 * child_address가 NULL이 아니면 아직 살아 있는 자식이라 parent를 NULL로 바꿔 고아로 표시해요.
+	 * 이미 끝난 자식은 child_address가 NULL이라 따라가지 않아요. */
+	lock_acquire(&process_lock);
+
+	struct list *l = &curr->child_record_list;
+	while (!list_empty (l)) {
+		struct list_elem *e = list_pop_front (l);
+		struct record *r = list_entry (e, struct record, child_elem);
+		if (r->child_address != NULL) r->child_address->parents = NULL;
+		free(r);
+	}
+
+	lock_release(&process_lock);
+
+	/* 3) 종료 메시지예요.
+	 * 부모가 없는 프로세스는 위 1)을 통째로 건너뛰니까, 여기서 한 번 더 -1을 정해요.
+	 * 지금은 커널 스레드가 끝날 때도 찍혀서 threads 테스트가 FAIL이에요 (#119). */
 	char *filename=curr->name;
-	printf("%s: exit(%d)\n",filename,curr->exit_status);
+	if (curr->exit_called != true) exit_code = -1;
+	printf("%s: exit(%d)\n",filename, exit_code);
 
 	process_cleanup ();
 }
