@@ -8,9 +8,11 @@
 #include "threads/flags.h"
 #include "intrinsic.h"
 #include <stdarg.h>
+#include <string.h>
 #include "threads/init.h"  //poweroff 함수 받아오기 위한 매크로
 #include "filesys/file.h"  //filesize + file 관련 함수 받아오기 위한 매크로
 #include "filesys/filesys.h"
+#include "threads/palloc.h"
 #include "userprog/process.h"
 
 
@@ -195,6 +197,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		}
 
 		// case SYS_EXEC:
+	case SYS_EXEC: {
+		char *fn_copy;
+		fn_copy = palloc_get_page (0);
+		strlcpy(fn_copy, (char*)f->R.rdi, PGSIZE);
+
+		process_exec(fn_copy);
+		break;
+	}
 
 		// case SYS_FORK:
 			
