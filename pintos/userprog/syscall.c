@@ -86,7 +86,19 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		//case SYS_TELL:
 
-		// case SYS_CREATE:
+			case SYS_CREATE: {
+				char* file_name=f->R.rdi;
+				unsigned initial_size=f->R.rsi;
+				if(file_name==NULL){
+					thread_current()->exit_status=-1;
+					thread_exit();
+				}
+
+				bool success=filesys_create(file_name,initial_size);
+				f->R.rax=success;
+				break;
+			}
+			
 
 		// case SYS_REMOVE:
 
@@ -153,18 +165,18 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_READ: {
 		
-			// int fd=f->R.rdi;
-			// void *buffer=f->R.rsi;
-			// unsigned size=f->R.rdx;
+			int fd=f->R.rdi;
+			void *buffer=f->R.rsi;
+			unsigned size=f->R.rdx;
 
-			// //실제로 읽은 바이트 수 
-			// int bytes_read=0;
-			// if (fd==0){
-			// 	input_getc();
-			// }
-			// if (fd==2){
+			//실제로 읽은 바이트 수 
+			int bytes_read=0;
+			if (fd==0){
+				input_getc();
+			}
+			if (fd==2){
 				
-			// }
+			}
 		}
 
 	/* 유저의 wait(pid)가 들어오는 입구예요.
