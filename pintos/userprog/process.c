@@ -171,11 +171,18 @@ error:
 }
 
 /* 현재 실행 문맥을 f_name으로 바꿔요.
- * 실패하면 -1을 돌려줘요. */
+ * 실패하면 -1을 돌려줘요.
+ *
+ * 부르는 곳은 두 군데예요.
+ * - initd: 부팅할 때 첫 유저 프로그램을 띄워요. 이때 지금 스레드는 아직 커널 스레드예요.
+ * - SYS_EXEC: 유저 프로그램이 exec()를 불렀어요. 새 스레드를 만들지 않고 지금 프로세스를 갈아 끼워요.
+ * F_NAME은 둘 다 palloc으로 받은 커널 페이지여야 해요. 아래에서 palloc_free_page로 반납하니까요.
+ * 주소 공간을 먼저 정리하기 때문에, 실패해서 돌아가도 원래 프로그램은 이미 없어요. */
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	bool success;
+	struct thread *curr = thread_current();
+	bool success, initd = false;
 
 	/* 여기서는 thread 구조체 안의 intr_frame을 쓸 수 없어요.
 	 * 현재 스레드가 다시 스케줄될 때
@@ -184,6 +191,12 @@ process_exec (void *f_name) {
 	_if.ds = _if.es = _if.ss = SEL_UDSEG;
 	_if.cs = SEL_UCSEG;
 	_if.eflags = FLAG_IF | FLAG_MBS;
+
+	/* initd로 들어왔는지 exec로 들어왔는지 여기서 미리 봐 둬요.
+	 * initd로 들어오면 아직 유저 주소 공간이 없어서 pml4가 NULL이고,
+	 * exec로 들어오면 원래 프로그램의 pml4가 있어요.
+	 * 바로 아래 process_cleanup이 pml4를 NULL로 지우니까, 그 뒤에는 둘을 구분할 수 없어요. */
+	if (curr->pml4 == NULL) initd = true;
 
 	/* 먼저 지금 문맥을 없애요 */
 	process_cleanup ();
@@ -195,8 +208,10 @@ process_exec (void *f_name) {
 	argc =  parse_words(arg,file_name," ");
 
 	/* 스레드 이름을 프로그램 이름(arg[0])으로 바꿔요.
-	 * 처음 이름은 명령줄 앞 15글자라서, 그대로 두면 인수까지 섞여 있어요. */
-	 strlcpy (thread_current()->name, arg[0], sizeof thread_current()->name);
+	 * 처음 이름은 명령줄 앞 15글자라서, 그대로 두면 인수까지 섞여 있어요.
+	 * exec로 들어왔을 때는 바꾸지 않아요. exec를 부른 스레드의 이름은 그대로여야 해서,
+	 * exec-once의 마지막 줄이 child-simple이 아니라 exec-once: exit(81)이에요. */
+	 if (initd == true) strlcpy (curr->name, arg[0], sizeof curr->name);
 
 	/* 그다음 바이너리를 불러와요 */
 	success = load (file_name, &_if, arg, argc);
