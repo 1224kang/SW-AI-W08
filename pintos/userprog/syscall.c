@@ -89,13 +89,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				struct file_fd_mapping *fm = list_entry(e, struct file_fd_mapping, file_fd_elem);	
 				if(fm->index == fd){
 					found = fm;  //일치하다면 found에 일치한 값 저장
+					break;
 				}
 			}
-			if(found == NULL){
-				f->R.rax = -1;  
-			}else{
-				f->R.rax = file_length(found->mapping_file);
-			}	
+			if(found == NULL) f->R.rax = -1;  
+			else f->R.rax = file_length(found->mapping_file);
+			
 			break;
 		}
 		// case SYS_SEEK:
