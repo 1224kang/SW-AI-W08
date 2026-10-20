@@ -162,7 +162,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			if(found == NULL){
 				f->R.rax = -1;
 			}
-			else { file_tell(found);
+			else { 
+				f->R.rax=file_tell(found->mapping_file);
 			}
 			break;
 		}
