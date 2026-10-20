@@ -67,7 +67,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_EXIT:
 			int status=f->R.rdi;
 			thread_current()->exit_status=status;
-			thread_current()->exit_called=true;
+			thread_current()->exit_called=true;	// 정상 종료 표시. process_exit에서 이게 false면 예외로 죽은 거라 -1로 봐요
 
 			//프로세스 종료시키기
 			thread_exit ();			
@@ -140,7 +140,10 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			// }
 		}
 
-		// case SYS_WAIT:
+	/* 유저의 wait(pid)가 들어오는 입구예요.
+	 * pid는 RDI로 들어와요. PintOS는 프로세스 하나에 스레드 하나라 pid가 곧 tid여서 그대로 넘겨요.
+	 * 결과는 return이 아니라 f->R.rax에 써야 해요.
+	 * f는 유저로 돌아갈 때 복원될 레지스터 사본이라, 여기 rax가 유저 쪽 wait()의 반환값이 돼요. */
 	case SYS_WAIT:
 		{
 			tid_t tid = f->R.rdi;
