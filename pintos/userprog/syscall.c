@@ -17,6 +17,8 @@
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
+struct lock sys_lock;
+
 /* 시스템 콜(System Call).
  *
  * 이전에는 시스템 콜 서비스가 인터럽트 핸들러에 의해 처리되었다
@@ -86,19 +88,19 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		//case SYS_TELL:
 
-			case SYS_CREATE: {
-				char* file_name=f->R.rdi;
-				unsigned initial_size=f->R.rsi;
-				if(file_name==NULL){
-					thread_current()->exit_status=-1;
-					thread_exit();
-				}
-
-				bool success=filesys_create(file_name,initial_size);
-				f->R.rax=success;
-				break;
+		case SYS_CREATE: {
+			char* file_name=f->R.rdi;
+			unsigned initial_size=f->R.rsi;
+			if(file_name==NULL){
+				thread_current()->exit_status=-1;					
+				thread_exit();
 			}
-			
+			lock_acquire(&sys_lock);
+			bool success=filesys_create(file_name,initial_size);
+			lock_release(&sys_lock);
+			f->R.rax=success;
+			break;
+		}
 
 		case SYS_REMOVE:{
 			char *file_name=f->R.rdi;
@@ -106,7 +108,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				thread_current()->exit_status=-1;
 				thread_exit();
 			}
+			lock_acquire(&sys_lock);
 			bool success=filesys_remove(file_name);
+			lock_release(&sys_lock);
 			f->R.rax=success;
 			break;
 		}
@@ -125,7 +129,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			}
 
 			struct fd_table *fdt=thread_current()->fdt;
-			
+		
 			//새로운 fdt 할당 
 			struct file_fd_mapping *new_fd=malloc(sizeof(struct file_fd_mapping));
 			if(new_fd==NULL){ //malloc 실패
@@ -173,19 +177,51 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 
 		case SYS_READ: {
-		
 			int fd=f->R.rdi;
 			void *buffer=f->R.rsi;
 			unsigned size=f->R.rdx;
+			bool found=false;
 
+			struct list *fd_list=&thread_current()->fdt->fd_list;
+			struct list_elem *e=list_begin(fd_list);
+
+			lock_acquire(&sys_lock);
 			//실제로 읽은 바이트 수 
 			int bytes_read=0;
 			if (fd==0){
-				input_getc();
+				for(int i=0;i<size;i++){
+					((char *)buffer)[i] = (char)input_getc();
+					bytes_read++;
+				}
+				f->R.rax=bytes_read;
+				break;
 			}
-			if (fd==2){
+
+			if(fd==1){
+				f->R.rax=-1;
+				break;
+			}
+			
+			if (fd>=2){
+				//fd에 맞는 파일 찾기
+				while(e!=list_end(fd_list)){
+					struct file_fd_mapping *mapping=list_entry(e,struct file_fd_mapping,file_fd_elem);
+					
+					if(mapping->index==fd){
+						found=true;
+						off_t read_size=file_read(mapping->mapping_file,buffer,size);
+						f->R.rax=read_size;
+						break;
+					}
+					e=list_next(e);
+				}
 				
+				if(!found){
+					f->R.rax=-1;
+				} 
+				break;
 			}
+			lock_release(&sys_lock);
 		}
 
 	/* 유저의 wait(pid)가 들어오는 입구예요.
