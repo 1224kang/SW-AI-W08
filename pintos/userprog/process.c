@@ -476,6 +476,7 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
+	t->running_file = file;
 
 	/* 실행 파일 헤더를 읽고 검사해요. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr

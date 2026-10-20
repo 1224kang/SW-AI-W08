@@ -115,6 +115,7 @@ struct thread {
 	int exit_status;					// exit()에 넘긴 종료 코드
 
 	struct fd_table *fdt;
+	struct file *running_file;
 	
 
 #ifdef USERPROG
