@@ -63,6 +63,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			int fd=f->R.rdi;
 			void *buffer=f->R.rsi;
 			unsigned size=f->R.rdx;
+			bool found=false;
 
 			if(fd==1){
 				//버퍼에 저장된 size개의 문자를 콘솔에 출력
@@ -70,7 +71,30 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				f->R.rax=size;
 				break;
 			}
-			else{break;}
+			else{
+				//fd와 매핑된 file 찾기 
+				struct list *fd_list=&thread_current()->fdt->fd_list;
+				struct list_elem *e=list_begin(fd_list);
+
+				while(e!=list_end(fd_list)){
+					struct file_fd_mapping *mapping=list_entry(e,struct file_fd_mapping,file_fd_elem);
+					
+					if(mapping->index==fd){
+						found=true;
+						//file_tell, file_length 구현 후 EOF에 도달했는지 판단 예외처리
+						off_t bytes_written=file_write(mapping->mapping_file,buffer,size);
+						f->R.rax=bytes_written;
+						break;
+					}
+
+					e=list_next(e);
+				}
+				if(!found){
+					f->R.rax=0;
+				}
+				break;
+
+			}
 		
 		case SYS_EXIT:
 			int status=f->R.rdi;
@@ -198,6 +222,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			bool found=false;
 
 			struct list *fd_list=&thread_current()->fdt->fd_list;
+			if(fd_list==NULL){
+				break;
+			}
 			struct list_elem *e=list_begin(fd_list);
 
 			//실제로 읽은 바이트 수 
@@ -235,6 +262,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				} 
 				break;
 			}
+			break;
 		}
 
 	/* 유저의 wait(pid)가 들어오는 입구예요.
