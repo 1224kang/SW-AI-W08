@@ -92,7 +92,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				f->R.rax=-1;
 				break;
 			}
-			
+
 			struct file* file=filesys_open(file_name);
 			if(file==NULL){
 				f->R.rax=-1;
@@ -115,11 +115,37 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			fdt->next_fd_index+=1;
 			//반환값
 			f->R.rax=new_fd->index;
+			break;
 		}
-		
 
+		case SYS_CLOSE: {
+			int fd=f->R.rdi;
 
-		// case SYS_CLOSE:
+			if(fd==1 || fd==0){
+				break;
+			}
+			else{
+				//fd와 매핑된 file 찾기 
+				struct list *fd_list=&thread_current()->fdt->fd_list;
+				struct list_elem *e=list_begin(fd_list);
+
+				while(e!=list_end(fd_list)){
+					struct file_fd_mapping *mapping=list_entry(e,struct file_fd_mapping,file_fd_elem);
+					
+					if(mapping->index==fd){
+						file_close(mapping->mapping_file);
+						list_remove(e);
+						free(mapping);
+						break;
+					}
+
+					e=list_next(e);
+				}
+
+				break;
+			}	
+		}
+
 
 		case SYS_READ: {
 		
