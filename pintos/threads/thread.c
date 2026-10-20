@@ -14,6 +14,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "fixed_point.h"
+#include "userprog/syscall.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -46,6 +47,8 @@ static struct lock tid_lock;
 
 /* Thread destruction requests */
 static struct list destruction_req;
+
+struct lock sys_lock;  
 
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
@@ -128,7 +131,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	lock_init (&process_lock);	// thread_create가 이 락을 잡으니까, 첫 thread_create(idle) 전에 준비돼 있어야 해요
-	lock_init(&sys_lock);
+	lock_init (&sys_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
 	list_init (&all_list);	// all_list 초기화
