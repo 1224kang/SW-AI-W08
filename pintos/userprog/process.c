@@ -238,8 +238,31 @@ process_exit () {
 	 * TODO: 프로세스 종료 메시지를 구현해요
 	 * TODO: (project2/process_termination.html 참고).
 	 * TODO: 프로세스 자원 정리도 여기서 구현하기를 추천해요. */
+	int exit_code = curr->exit_status;
+
+	lock_acquire(&process_lock);
+	if (curr->parents != NULL)
+	{
+		struct list *parents = &curr->parents->child_record_list;
+		if (list_empty(parents) == true) PANIC("process_exit: no record for tid %d in parent's list", curr->tid);
+
+		struct list_elem *e;
+		for (e = list_begin (parents); e != list_end (parents);
+			 e = list_next (e)) {
+			struct record *r = list_entry (e, struct record, child_elem);
+			if (r->tid == curr->tid)
+			{
+				r->child_address = NULL;
+				r->status = exit_code;
+				sema_up(&r->process_sema);
+				break;
+			}
+		  }
+	}
+	lock_release(&process_lock);
+
 	char *filename=curr->name;
-	printf("%s: exit(%d)\n",filename,curr->exit_status);
+	printf("%s: exit(%d)\n",filename, exit_code);
 
 	process_cleanup ();
 }
