@@ -72,7 +72,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		
 		case SYS_EXIT:
 			int status=f->R.rdi;
-			sys_exit(status);
+			sys_exit(status);	// 돌아오지 않아서, break가 없어도 아래 SYS_HALT로 새지 않아요
 
 		case SYS_HALT:
 			power_off(); 
@@ -194,12 +194,20 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			break;
 		}
 
-		// case SYS_EXEC:
+	/* 유저의 exec(cmd_line)가 들어오는 입구예요.
+	 * RDI에는 명령줄 문자열의 주소가 들어 있어요. 그 문자열은 유저 주소 공간에 있는데,
+	 * process_exec가 맨 먼저 그 주소 공간을 정리해 버려요.
+	 * 그래서 주소가 아니라 글자 내용을 커널 페이지로 먼저 복사해서 넘겨요.
+	 * process_create_initd의 fn_copy와 같은 방식이고, 그 페이지는 process_exec가 반납해요.
+	 * 잘못된 주소를 넘기는 경우(exec-bad-ptr)는 유저 포인터 검사가 들어오면 복사 직전에 막아야 해요. */
 	case SYS_EXEC: {
 		char *fn_copy;
 		fn_copy = palloc_get_page (0);
 		strlcpy(fn_copy, (char*)f->R.rdi, PGSIZE);
 
+		/* 성공하면 process_exec는 돌아오지 않아요. 새 프로그램이 이 자리에서 시작해요.
+		 * 돌아왔다면 실패한 거고, 원래 주소 공간은 이미 없어서 유저로 돌아갈 수 없어요.
+		 * 그래서 그 자리에서 -1로 끝내요. */
 		int result = process_exec(fn_copy);
 		if (result == -1) sys_exit(-1);
 		break;
@@ -213,6 +221,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	// thread_exit ();
 }
 
+/* 지금 프로세스를 종료 코드 STATUS로 끝내요. 돌아오지 않아요.
+ * SYS_EXIT 칸이 하던 일을 그대로 옮긴 함수예요. exec 실패처럼 커널이 -1로 끝내야 할 때도 같이 써요.
+ * exit_called를 켜 두면 process_exit가 STATUS를 그대로 종료 코드로 써요. */
 void sys_exit(int status)
 {
 	thread_current()->exit_status=status;
