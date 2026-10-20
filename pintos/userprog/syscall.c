@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include "threads/init.h"  //poweroff 함수 받아오기 위한 매크로
 #include "filesys/file.h"  //filesize + file 관련 함수 받아오기 위한 매크로
+#include "filesys/filesys.h"
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -122,7 +123,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			int fd=f->R.rdi;
 
 			if(fd==1 || fd==0){
-				break;
+				break;	
 			}
 			else{
 				//fd와 매핑된 file 찾기 
