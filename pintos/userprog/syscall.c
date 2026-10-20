@@ -98,7 +98,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			}	
 			break;
 		}
-		// case SYS_SEEK:
+		case SYS_SEEK:
 
 		//case SYS_TELL:
 
