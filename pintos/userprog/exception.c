@@ -77,9 +77,9 @@ kill (struct intr_frame *f) {
 		case SEL_UCSEG:
 			/* 유저 코드 세그먼트예요. 예상대로 유저 예외라서
 			   유저 프로세스를 죽여요. */
-			printf ("%s: dying due to interrupt %#04llx (%s).\n",
-					thread_name (), f->vec_no, intr_name (f->vec_no));
-			intr_dump_frame (f);
+			//printf ("%s: dying due to interrupt %#04llx (%s).\n",
+			//		thread_name (), f->vec_no, intr_name (f->vec_no));
+			//intr_dump_frame (f);
 			thread_exit ();
 
 		case SEL_KCSEG:
@@ -142,11 +142,13 @@ page_fault (struct intr_frame *f) {
 	page_fault_cnt++;
 
 	/* 진짜 fault면 정보를 보여주고 끝내요. */
+	if (user == false) {
 	printf ("Page fault at %p: %s error %s page in %s context.\n",
 			fault_addr,
 			not_present ? "not present" : "rights violation",
 			write ? "writing" : "reading",
 			user ? "user" : "kernel");
+	}
 	kill (f);
 }
 
