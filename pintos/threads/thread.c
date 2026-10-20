@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "threads/malloc.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -75,6 +76,11 @@ void thread_preemption(void);
 
 void priority_thread_yield(void);
 
+/* wait용 전역 락이에요.
+ * 부모와 자식이 같이 만지는 것들(child_record_list, parents, 기록 안의 값)을 지켜요.
+ * thread.h에서 extern으로 선언해서 process.c에서도 같이 써요. */
+struct lock process_lock;
+
 int load_avg;
 
 /* Returns true if T appears to point to a valid thread. */
@@ -121,6 +127,7 @@ thread_init (void) {
 
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
+	lock_init (&process_lock);	// thread_create가 이 락을 잡으니까, 첫 thread_create(idle) 전에 준비돼 있어야 해요
 	list_init (&ready_list);
 	list_init (&destruction_req);
 	list_init (&all_list);	// all_list 초기화
@@ -200,6 +207,7 @@ tid_t
 thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
 	struct thread *t;
+	struct record *r;
 	tid_t tid;
 
 	ASSERT (function != NULL);
@@ -208,10 +216,23 @@ thread_create (const char *name, int priority,
 	t = palloc_get_page (PAL_ZERO);
 	if (t == NULL)
 		return TID_ERROR;
+	/* 자식 기록(struct record)을 init_thread보다 먼저 만들어요.
+	 * 실패하면 아직 아무 데도 안 걸린 페이지만 돌려주고 끝내면 돼요. */
+	r = malloc(sizeof(struct record));
+	if (r == NULL)
+	{
+		palloc_free_page(t);
+		return TID_ERROR;
+	}
 
 	/* Initialize thread. */
 	init_thread (t, name, priority);
 	tid = t->tid = allocate_tid ();
+	/* tid가 정해진 다음에 기록을 채워요.
+	 * 세마포어는 0에서 시작해요. 자식이 끝나면서 up하기 전까지 부모의 down이 기다리게 돼요. */
+	r->tid = tid;
+	r->child_address = t;
+	sema_init(&r->process_sema,0);
 
 	/* Call the kernel_thread if it scheduled.
 	 * Note) rdi is 1st argument, and rsi is 2nd argument. */
@@ -223,6 +244,15 @@ thread_create (const char *name, int priority,
 	t->tf.ss = SEL_KDSEG;
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
+
+	/* 부모를 정하고, 기록을 지금 스레드(부모)의 리스트에 매달아요.
+	 * 둘 다 thread_unblock보다 먼저 해야 해요.
+	 * 자식이 먼저 돌기 시작해서 바로 끝나 버려도, 부모 리스트에 자기 기록이 있어야 하니까요. */
+	t->parents = thread_current();
+
+	lock_acquire(&process_lock);
+	list_push_back(&thread_current()->child_record_list, &r->child_elem);
+	lock_release(&process_lock);
 
 	/* Add to run queue. */
 	thread_unblock (t);
@@ -593,6 +623,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->my_priority = priority;           // 원래 우선순위 백업 
     t->lock_to_stop = NULL;              // 대기 중인 락 
     list_init (&t->donation_list);       // 기부자 리스트 초기화
+	list_init (&t->child_record_list);	// 내가 만든 자식들의 기록 리스트
 
 	// t->fdt=malloc(sizeof(struct fd_table));
 	// if (t->fdt != NULL) {

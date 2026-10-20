@@ -10,6 +10,9 @@
 #include <stdarg.h>
 #include "threads/init.h"  //poweroff 함수 받아오기 위한 매크로
 #include "filesys/file.h"  //filesize + file 관련 함수 받아오기 위한 매크로
+#include "filesys/filesys.h"
+#include "userprog/process.h"
+
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -66,6 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_EXIT:
 			int status=f->R.rdi;
 			thread_current()->exit_status=status;
+			thread_current()->exit_called=true;	// 정상 종료 표시. process_exit에서 이게 false면 예외로 죽은 거라 -1로 봐요
 
 			//프로세스 종료시키기
 			thread_exit ();			
@@ -108,7 +112,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				f->R.rax=-1;
 				break;
 			}
-			
+
 			struct file* file=filesys_open(file_name);
 			if(file==NULL){
 				f->R.rax=-1;
@@ -133,10 +137,35 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			f->R.rax=new_fd->index;
 			break;
 		}
-		
 
+		case SYS_CLOSE: {
+			int fd=f->R.rdi;
 
-		// case SYS_CLOSE:
+			if(fd==1 || fd==0){
+				break;	
+			}
+			else{
+				//fd와 매핑된 file 찾기 
+				struct list *fd_list=&thread_current()->fdt->fd_list;
+				struct list_elem *e=list_begin(fd_list);
+
+				while(e!=list_end(fd_list)){
+					struct file_fd_mapping *mapping=list_entry(e,struct file_fd_mapping,file_fd_elem);
+					
+					if(mapping->index==fd){
+						file_close(mapping->mapping_file);
+						list_remove(e);
+						free(mapping);
+						break;
+					}
+
+					e=list_next(e);
+				}
+
+				break;
+			}	
+		}
+
 
 		case SYS_READ: {
 		
@@ -154,7 +183,17 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			// }
 		}
 
-		// case SYS_WAIT:
+	/* 유저의 wait(pid)가 들어오는 입구예요.
+	 * pid는 RDI로 들어와요. PintOS는 프로세스 하나에 스레드 하나라 pid가 곧 tid여서 그대로 넘겨요.
+	 * 결과는 return이 아니라 f->R.rax에 써야 해요.
+	 * f는 유저로 돌아갈 때 복원될 레지스터 사본이라, 여기 rax가 유저 쪽 wait()의 반환값이 돼요. */
+	case SYS_WAIT:
+		{
+			tid_t tid = f->R.rdi;
+			int result = process_wait(tid);
+			f->R.rax = result;
+			break;
+		}
 
 		// case SYS_EXEC:
 
