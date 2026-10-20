@@ -17,6 +17,7 @@
 #include "threads/thread.h"
 #include "threads/mmu.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #include "intrinsic.h"
 #ifdef VM
 #include "vm/vm.h"
@@ -221,12 +222,33 @@ process_exec (void *f_name) {
  * 이 함수는 문제 2-2에서 구현해요. 지금은
  * 아무 일도 안 해요. */
 int
-process_wait (tid_t child_tid UNUSED) {
-	/* XXX: 힌트) process_wait (initd)를 하면 pintos가 종료돼요. process_wait를
-	 * XXX:       구현하기 전에는 여기에 무한 루프를
-	 * XXX:       넣어 두기를 추천해요. */
-	timer_sleep(100);
+process_wait (tid_t child_tid) {
+	//timer_sleep(100);
+	int exit_code = 0;
 
+	struct thread *curr = thread_current();
+	struct list *l = &curr->child_record_list;
+	if (list_empty(l) == true) return -1;
+
+	struct list_elem *e;
+	bool found = false;
+	for (e = list_begin (l); e != list_end (l);
+		 e = list_next (e)) {
+		struct record *r = list_entry (e, struct record, child_elem);
+		if (r->tid == child_tid) {
+			sema_down(&r->process_sema);
+			lock_acquire(&process_lock);
+
+			exit_code =  r->status;
+			list_remove(e);
+			free(r);
+			lock_release(&process_lock);
+			found = true;
+			break;
+		}
+	}
+	if (found == false) return -1;
+	return exit_code;
 }
 
 
