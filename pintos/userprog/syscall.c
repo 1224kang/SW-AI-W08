@@ -315,3 +315,73 @@ void sys_exit(int status)
 	//프로세스 종료시키기
 	thread_exit ();
 }
+
+//사용자 메모리 접근(User Memory Access)
+void 
+check_user_memory_with_size(void *addr, unsigned size){
+	struct thread *cur=thread_current();
+	const char *p=addr; //주소를 가리키는 포인터 p
+
+	//NULL 포인터인지 검사
+	if(p==NULL){
+		sys_exit(-1);
+	}
+
+	if(size==0){
+		sys_exit(-1);
+	}
+	
+	const char *pg_start=pg_round_down(addr);
+	const char *pg_end=pg_round_down(p+size-1);
+	char *cur_pg=pg_start;
+
+	while(cur_pg<=pg_end){
+		//커널 공간을 가리키는 포인터인지 검사
+		if(is_kernel_vaddr(cur_pg)){
+			sys_exit(-1);
+		}
+
+		//매핑 되지 않은 가상 메모리를 가리키는 포인터인지 검사
+		if(pml4_get_page(cur->pml4,cur_pg)==NULL){
+			sys_exit(-1);
+		}
+
+		//다음 페이지 경계로 이동
+		cur_pg=pg_round_down(cur_pg+PGSIZE);
+	}
+	
+}
+
+//사용자 메모리 접근(User Memory Access)
+void 
+check_user_memory_without_size(void *addr){
+	struct thread *cur=thread_current();
+	const char *p=addr; //주소를 가리키는 포인터 p
+
+	//NULL 포인터인지 검사
+	if(p==NULL){
+		sys_exit(-1);
+	}
+
+	char const *cur_p=p; 
+	while(true){
+		//커널 공간을 가리키는 포인터인지 검사
+		if(is_kernel_vaddr(cur_p)){
+			sys_exit(-1);
+		}
+
+		//매핑 되지 않은 가상 메모리를 가리키는 포인터인지 검사
+		if(pml4_get_page(cur->pml4,cur_p)==NULL){
+			sys_exit(-1);
+		}	
+
+		//종료 조건
+		if(*cur_p=='\0'){
+			break;
+		}
+
+		//다음 바이트로 이동
+		cur_p+=1;
+	}
+		
+}
