@@ -100,7 +100,16 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			}
 			
 
-		// case SYS_REMOVE:
+		case SYS_REMOVE:{
+			char *file_name=f->R.rdi;
+			if(file_name==NULL){
+				thread_current()->exit_status=-1;
+				thread_exit();
+			}
+			bool success=filesys_remove(file_name);
+			f->R.rax=success;
+			break;
+		}
 
 		case SYS_OPEN: {
 			char* file_name=f->R.rdi;
