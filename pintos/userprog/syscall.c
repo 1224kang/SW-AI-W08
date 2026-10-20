@@ -65,12 +65,15 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			unsigned size=f->R.rdx;
 			bool found=false;
 
+			check_user_memory_with_size(buffer,size);
+
 			if(fd==1){
 				//버퍼에 저장된 size개의 문자를 콘솔에 출력
 				putbuf(buffer,size);
 				f->R.rax=size;
 				break;
 			}
+			
 			else{
 				//fd와 매핑된 file 찾기 
 				struct list *fd_list=&thread_current()->fdt->fd_list;
@@ -130,6 +133,9 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		case SYS_CREATE: {
 			char* file_name=f->R.rdi;
 			unsigned initial_size=f->R.rsi;
+
+			check_user_memory_with_size(file_name,initial_size);
+
 			if(file_name==NULL){
 				thread_current()->exit_status=-1;					
 				thread_exit();
@@ -143,10 +149,14 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 		case SYS_REMOVE:{
 			char *file_name=f->R.rdi;
+			
 			if(file_name==NULL){
 				thread_current()->exit_status=-1;
 				thread_exit();
 			}
+
+			check_user_memory_without_size(buffer);
+
 			lock_acquire(&sys_lock);
 			bool success=filesys_remove(file_name);
 			lock_release(&sys_lock);
@@ -160,6 +170,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				f->R.rax=-1;
 				break;
 			}
+			check_user_memory_without_size(file_name);
 
 			struct file* file=filesys_open(file_name);
 			if(file==NULL){
@@ -222,6 +233,8 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			bool found=false;
 
 			struct list *fd_list=&thread_current()->fdt->fd_list;
+			check_user_memory_with_size(buffer,size);
+
 			if(fd_list==NULL){
 				break;
 			}
