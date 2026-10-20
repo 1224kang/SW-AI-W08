@@ -115,7 +115,7 @@ struct thread {
 	int exit_status;					// exit()에 넘긴 종료 코드
 
 	struct fd_table *fdt;
-	struct file *running_file;
+	struct file *running_file;			// 지금 실행 중인 프로그램 파일 (rox, #115). 쓰기 금지를 건 바로 그 struct file이라야 풀 수 있어서 들고 있어요
 	
 
 #ifdef USERPROG

@@ -282,12 +282,17 @@ process_wait (tid_t child_tid) {
 void
 process_exit () {
 	struct thread *curr = thread_current ();
+
+	/* 실행 중이던 프로그램 파일을 닫아요 (rox, #115).
+	 * file_close가 안에서 file_allow_write를 불러서, load에서 건 쓰기 금지가 여기서 풀려요.
+	 * 커널 스레드나 load 전에 끝난 경우엔 running_file이 NULL인데, file_close는 NULL이면 그냥 넘어가요. */
 	file_close(curr->running_file);
+
 	/* wait 쪽 정리를 세 덩어리로 해요.
 	 * 1) 자식 몫: 부모 리스트에서 내 기록을 찾아 종료 코드를 남기고 부모를 깨워요.
 	 * 2) 부모 몫: 내가 만든 자식들의 기록을 전부 free하고, 살아 있는 자식은 고아로 표시해요.
 	 * 3) 종료 메시지를 찍어요. SYS_EXIT 없이 죽었으면(예외) 종료 코드는 -1이에요.
-	 * 파일 같은 다른 프로세스 자원 정리는 아직 여기 없어요. */
+	 * 실행 파일 말고 fd 목록 같은 다른 프로세스 자원 정리는 아직 여기 없어요. */
 	int exit_code = curr->exit_status;
 
 	/* 1) 자식 몫이에요.
@@ -547,6 +552,10 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 	if (!setup_stack (if_))
 		goto done;
 
+	/* 이 아래로는 실패해서 done:으로 가는 곳이 없어서, 여기서 실행 파일 주소를 스레드에 적어요 (rox, #115).
+	 * 더 위에서 적으면, 그 뒤에 실패했을 때 done:이 닫은 주소가 running_file에 남아서 process_exit가 한 번 더 닫아요.
+	 * exec로 들어온 거면 running_file에 exec 전 프로그램의 파일이 들어 있어요.
+	 * 그 프로그램은 이제 안 돌아가니까 먼저 닫아서(쓰기 금지도 풀려요) 덮어써도 남는 게 없게 해요. */
 	if (t->running_file != NULL) file_close(t->running_file);
 	t->running_file = file;
 
@@ -562,10 +571,12 @@ load (const char *file_name, struct intr_frame *if_, char **arg, int argc) {
 	if_->R.rdi = argc;
 
 	success = true;
-	file_deny_write(file);
+	file_deny_write(file);	// 실행 중인 프로그램 파일에는 쓰기를 막아요. 프로세스가 끝날 때 process_exit에서 풀려요
 
 done:
-	/* 불러오기가 성공하든 실패하든 여기로 와요. */
+	/* 불러오기가 성공하든 실패하든 여기로 와요.
+	 * 성공했으면 파일을 닫지 않고 열어 둬요. file_close는 안에서 allow와 free까지 해서,
+	 * 여기서 닫으면 방금 건 쓰기 금지가 바로 풀리고 running_file도 해제된 주소가 돼요. */
 	if (success == false) file_close (file);
 	return success;
 }
