@@ -128,6 +128,7 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	lock_init (&process_lock);	// thread_create가 이 락을 잡으니까, 첫 thread_create(idle) 전에 준비돼 있어야 해요
+	lock_init(&sys_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
 	list_init (&all_list);	// all_list 초기화

@@ -21,7 +21,7 @@ void syscall_handler (struct intr_frame *);
 void sys_exit(int status);
 
 
-struct lock sys_lock;
+extern struct lock sys_lock;
 
 /* 시스템 콜(System Call).
  *
@@ -200,7 +200,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			struct list *fd_list=&thread_current()->fdt->fd_list;
 			struct list_elem *e=list_begin(fd_list);
 
-			lock_acquire(&sys_lock);
 			//실제로 읽은 바이트 수 
 			int bytes_read=0;
 			if (fd==0){
@@ -236,7 +235,6 @@ syscall_handler (struct intr_frame *f UNUSED) {
 				} 
 				break;
 			}
-			lock_release(&sys_lock);
 		}
 
 	/* 유저의 wait(pid)가 들어오는 입구예요.
