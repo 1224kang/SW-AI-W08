@@ -83,22 +83,41 @@ syscall_handler (struct intr_frame *f UNUSED) {
 			struct list_elem *e;
 			struct file_fd_mapping *found = NULL; //말그대로 찾았을때 값 반환
 
-			int fd=f->R.rdi; 
+			int fd=f->R.rdi; //fdt 순회하면서 찾을 때 비교하는 번호
 
 			for(e = list_begin(&fdt->fd_list); e != list_end(&fdt->fd_list); e = list_next(e)){  //1. e에 리스트 초기값을 받는다 > 2. e가 리스트
 				struct file_fd_mapping *fm = list_entry(e, struct file_fd_mapping, file_fd_elem);	
 				if(fm->index == fd){
 					found = fm;  //일치하다면 found에 일치한 값 저장
-					break;
 				}
 			}
-			if(found == NULL) f->R.rax = -1;  
-			else f->R.rax = file_length(found->mapping_file);
-			
+			if(found == NULL){
+				f->R.rax = -1;  
+			}else{
+				f->R.rax = file_length(found->mapping_file);
+			}	
 			break;
 		}
-		case SYS_SEEK:{
-			
+		/* seek(fd, position): fd번 파일의 다음 읽기/쓰기 위치를 position 바이트로 옮겨요.
+		 * 반환값이 없는 시스템 콜(void)이라 rax에는 아무것도 쓰지 않아요.
+		 * 열지 않은 fd라서 못 찾으면 아무것도 하지 않고 끝나요. */
+		case SYS_SEEK:{  
+			int fd=f->R.rdi;  //fdt 순회하면서 찾을 때 비교하는 번호
+			off_t position=f->R.rsi; //옮길 위치(파일 처음부터 몇 번째 바이트인지). 두 번째 인자라 rsi에서 꺼냄
+			struct fd_table *fdt=thread_current()->fdt; //현재 프로세스의 fd 테이블
+			struct list_elem *e; //fd_list를 돌 때 쓰는 고리 포인터
+
+			//fd_list를 처음부터 끝까지 돌면서 index가 fd와 같은 줄 찾기
+			for(e = list_begin(&fdt->fd_list); e != list_end(&fdt->fd_list); e=list_next(e)){
+				struct file_fd_mapping *fm = list_entry(e, struct file_fd_mapping, file_fd_elem); //고리(e)에서 장부 한 줄(file_fd_mapping) 전체를 꺼냄
+
+				//이 줄의 번호(index)가 찾는 fd와 같으면
+				if(fm->index == fd){
+					file_seek(fm->mapping_file,position); //찾은 파일의 위치를 position으로 옮김
+					break; //for문만 빠져나감
+				}
+			}
+			break; //case 빠져나감 (못 찾았으면 아무것도 안 하고 여기로)
 		}
 
 		//case SYS_TELL:
