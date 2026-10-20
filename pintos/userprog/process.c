@@ -326,7 +326,7 @@ process_exit () {
 	 * 지금은 커널 스레드가 끝날 때도 찍혀서 threads 테스트가 FAIL이에요 (#119). */
 	char *filename=curr->name;
 	if (curr->exit_called != true) exit_code = -1;
-	printf("%s: exit(%d)\n",filename, exit_code);
+	if (curr->pml4 != NULL) printf("%s: exit(%d)\n",filename, exit_code);
 
 	process_cleanup ();
 }
