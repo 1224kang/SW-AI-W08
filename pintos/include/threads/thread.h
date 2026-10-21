@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -116,7 +117,11 @@ struct thread {
 
 	struct fd_table *fdt;
 	struct file *running_file;			// 지금 실행 중인 프로그램 파일 (rox, #115). 쓰기 금지를 건 바로 그 struct file이라야 풀 수 있어서 들고 있어요
-	
+
+	/* fork용 (#111). 둘 다 부모 쪽 칸이에요 */
+	struct semaphore fork_sema;			// 부모가 fork 안에서 자식의 복제가 끝날 때까지 잠드는 세마포어. 자식이 up해서 깨워요
+	tid_t fork_result;					// 자식이 적어 주는 fork 결과. 성공이면 자식 tid, 실패면 TID_ERROR
+
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
