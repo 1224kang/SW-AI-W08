@@ -86,10 +86,16 @@ initd (void *f_name) {
 /* 현재 프로세스를 `name`이라는 이름으로 복제해요. 새 프로세스의 스레드 id를 돌려주고,
  * 스레드를 못 만들면 TID_ERROR를 돌려줘요. */
 tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED) {
+process_fork (const char *name, struct intr_frame *if_) {
 	/* 현재 스레드를 새 스레드로 복제해요. */
+
+	/* 자식에게 넘길 인자 묶음이에요. 지역 변수라서 자식이 다 읽기 전에 이 함수가 끝나면 안 돼요 (#111) */
+	struct fork_args fork;
+	fork.parents = thread_current();
+	fork.if_ = if_;
+
 	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+			PRI_DEFAULT, __do_fork, &fork);
 }
 
 #ifndef VM
@@ -130,11 +136,12 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *       넘겨 줘야 해요. */
 static void
 __do_fork (void *aux) {
+	struct fork_args *parents_arg = aux;
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
+	struct thread *parent = parents_arg->parents;
 	struct thread *current = thread_current ();
-	/* TODO: 어떻게든 parent_if를 넘겨 받아요. (즉 process_fork()의 if_) */
-	struct intr_frame *parent_if;
+	/* parent_if는 process_fork가 fork_args에 담아 보낸 부모의 if_예요 (#111) */
+	struct intr_frame *parent_if = parents_arg->if_;
 	bool succ = true;
 
 	/* 1. CPU 문맥을 지역 스택으로 읽어 와요. */

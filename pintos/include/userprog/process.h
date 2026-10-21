@@ -23,4 +23,14 @@ struct record
     struct list_elem child_elem;    // 부모의 child_record_list에 매달리는 원소
 };
 
+/* fork할 때 부모가 자식(__do_fork)에게 건네는 인자 묶음이에요 (#111).
+   thread_create의 aux 자리는 포인터 하나뿐이라 둘을 묶어서 보내요.
+   본체는 process_fork의 지역 변수예요. 부모가 자식의 복제가 끝날 때까지 기다리니까 그동안은 살아 있어요. */
+struct fork_args
+{
+    struct thread *parents;         // fork를 부른 부모 스레드
+    struct intr_frame *if_;         // 부모가 syscall로 들어올 때 쌓인 유저 문맥. parent->tf에는 이게 없어서 따로 넘겨요
+};
+
+
 #endif /* userprog/process.h */
