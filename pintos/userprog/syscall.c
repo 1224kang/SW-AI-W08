@@ -339,8 +339,11 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	 * 잘못된 주소를 넘기는 경우(exec-bad-ptr)는 유저 포인터 검사가 들어오면 복사 직전에 막아야 해요. */
 	case SYS_EXEC: {
 		char *fn_copy;
+
+		check_user_memory_without_size(f->R.rdi);
 		fn_copy = palloc_get_page (0);
 		strlcpy(fn_copy, (char*)f->R.rdi, PGSIZE);
+		
 
 		/* 성공하면 process_exec는 돌아오지 않아요. 새 프로그램이 이 자리에서 시작해요.
 		 * 돌아왔다면 실패한 거고, 원래 주소 공간은 이미 없어서 유저로 돌아갈 수 없어요.
