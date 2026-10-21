@@ -193,4 +193,7 @@ void do_iret (struct intr_frame *tf);
    리스트에 넣고 빼는 곳, 자식이 부모 리스트를 도는 곳은 모두 이 락 안에서 해요. */
 extern struct lock process_lock;
 
+/* fd 테이블 초기화. 본체는 thread.c에 있고 process.c에서도 불러서 여기에 선언해 둬요 (#146) */
+void fd_table_init(struct fd_table *t);
+
 #endif /* threads/thread.h */
