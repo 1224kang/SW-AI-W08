@@ -206,14 +206,14 @@ __do_fork (void *aux) {
 		struct file* new_file=file_duplicate(parent_mapping->mapping_file);	
 		//복제 실패하는 경우 
 		if(new_file==NULL){ 
-			//fork 실패 함수 호출
+			goto error;
 		}
 
 		//자식 프로세스의 새로운 file_fd_mapping 할당
 		struct file_fd_mapping *new_fd_mapping=malloc(sizeof(struct file_fd_mapping));
 		if(new_fd_mapping==NULL){ //malloc 실패
 			free(new_fd_mapping);
-			break;
+			goto error;
 		}
 
 		new_fd_mapping->index=parent_mapping->index;
