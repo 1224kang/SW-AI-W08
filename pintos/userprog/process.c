@@ -163,6 +163,7 @@ __do_fork (void *aux) {
 
 	process_init ();
 	
+	
 	//자식 프로세스 fd_table 복사
 	current->fdt->next_fd_index=parent->fdt->next_fd_index;
 
@@ -191,7 +192,7 @@ __do_fork (void *aux) {
 		new_fd_mapping->index=parent_mapping->index;
 		new_fd_mapping->mapping_file=new_file;
 		list_push_back(&current->fdt->fd_list,&new_fd_mapping->file_fd_elem);
-		
+
 		e=list_next(e);
 	}
 
