@@ -184,6 +184,9 @@ __do_fork (void *aux) {
 	/* 마지막으로, 새로 만든 프로세스로 전환해요. */
 	if (succ) {
 		fork_notify(current->tid, parent);
+		/* 자식의 fork()는 0을 돌려받아야 해요. 복사해 온 if_의 rax에는 syscall 번호(SYS_FORK = 2)가 들어 있어서 여기서 바꿔요.
+		 * 부모 프레임(parent_if)이 아니라 자식 사본에 써야 부모 반환값(tid)이 그대로 남아요 (#111) */
+		if_.R.rax = 0;
 		do_iret (&if_);
 	}
 error:
