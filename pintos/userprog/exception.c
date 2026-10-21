@@ -149,6 +149,9 @@ page_fault (struct intr_frame *f) {
 			write ? "writing" : "reading",
 			user ? "user" : "kernel");
 	}
+	// f->rip=f->R..rax
+	// f->rax=1;
+
 	kill (f);
 }
 
