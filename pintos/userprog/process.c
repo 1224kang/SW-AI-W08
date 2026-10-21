@@ -99,12 +99,12 @@ static bool
 duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	struct thread *current = thread_current ();
 	struct thread *parent = (struct thread *) aux;
-	void *parent_page;
+	void *parent_page;  
 	void *newpage;
 	bool writable;
 
-	/* 1. TODO: parent_page가 커널 페이지면 바로 return 해요. */
-
+	/* 1. TODO: va가 커널 페이지면 바로 return 해요. + va는 사용자 프로세스가 보는 주소이다 (이전엔 parent_page가 검사대상이였는데, 흐름으로 보면 parent page가 값이 없을때 검사하는건 말도안됨) */
+	if(is_kernel_vaddr(va)) {return true;}
 	/* 2. 부모의 pml4(page map level 4)에서 VA를 찾아요. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
