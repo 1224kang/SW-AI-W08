@@ -110,15 +110,24 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 
 	/* 3. TODO: 자식용으로 새 PAL_USER 페이지를 할당하고, 그 결과를
 	 *    TODO: NEWPAGE에 넣어요. */
+	newpage=palloc_get_page(PAL_USER);
+	if(newpage==NULL){
+		palloc_free_page(newpage);
+		return false;
+	}  //메모리가 부족하다면 null이 담기니, newpage 에 null 이라면 잘못된 값을 받아오기 때문에 return false로 실패처리 
 
 	/* 4. TODO: 부모의 페이지를 새 페이지로 복제하고,
 	 *    TODO: 부모의 페이지가 쓰기 가능한지 확인해요 (그 결과에 맞게
 	 *    TODO: WRITABLE을 정해요). */
-
+	memcpy(newpage, parent_page, PGSIZE); 
+	writable = is_writable(pte);
+	
 	/* 5. 새 페이지를 자식의 페이지 테이블에 VA 주소로, WRITABLE
 	 *    권한을 붙여서 추가해요. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: 페이지를 넣는 데 실패하면 에러 처리를 해요. */
+		palloc_free_page(newpage);
+		return false;
 	}
 	return true;
 }
