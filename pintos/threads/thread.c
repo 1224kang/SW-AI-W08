@@ -649,6 +649,9 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 }
 
+/* 새 프로세스의 fd 테이블을 비운 상태로 준비해요. 0, 1번은 표준 입출력 자리라서 새 fd는 2번부터 줘요.
+   반환형이 없던 걸 void로 고쳤어요 (#146). 없으면 gcc 11은 int로 보고 경고만 내지만, gcc 14부터는 에러예요. */
+void
 fd_table_init(struct fd_table *t){
 	list_init(&t->fd_list);
 	t->next_fd_index=2;
