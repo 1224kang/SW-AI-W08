@@ -360,7 +360,7 @@ process_exit () {
 	 * 1) 자식 몫: 부모 리스트에서 내 기록을 찾아 종료 코드를 남기고 부모를 깨워요.
 	 * 2) 부모 몫: 내가 만든 자식들의 기록을 전부 free하고, 살아 있는 자식은 고아로 표시해요.
 	 * 3) 종료 메시지를 찍어요. SYS_EXIT 없이 죽었으면(예외) 종료 코드는 -1이에요.
-	 * 실행 파일 말고 fd 목록 같은 다른 프로세스 자원 정리는 아직 여기 없어요. */
+	 * 2)와 3) 사이에서 열어 둔 fd도 전부 닫아요 (#118). */
 	int exit_code = curr->exit_status;
 
 	/* 1) 자식 몫이에요.
@@ -409,6 +409,26 @@ process_exit () {
 	}
 
 	lock_release(&process_lock);
+
+	/* 열어 둔 fd를 전부 닫고 fd 테이블도 반납해요 (#118).
+	 * 안 닫으면 끝난 프로세스의 struct file과 매핑, 테이블이 계속 쌓여요.
+	 * multi-oom은 fork를 여러 번 반복해서, 회차마다 이게 쌓이면 다음 회차가 더 얕게 끝나요.
+	 * process_cleanup이 아니라 여기서 하는 이유: process_cleanup은 process_exec에서도 불려요.
+	 * 거기서 닫으면 exec한 새 프로그램이 fd를 잃고, 테이블을 free하면 반납한 메모리를 만지다 PANIC이 나요.
+	 * fdt가 NULL인 경우는 커널 스레드(process_init을 안 거쳐요)나 process_init의 malloc이 실패한 경우예요. */
+	if (curr->fdt != NULL) {
+		struct list *fd_list=&curr->fdt->fd_list;
+		struct list_elem *e=list_begin(fd_list);
+		//프로세스를 순회하면서 삭제
+		while(!list_empty (fd_list)) {
+			e = list_pop_front (fd_list);
+			struct file_fd_mapping *mapping= list_entry(e,struct file_fd_mapping,file_fd_elem);
+			struct file *file = mapping->mapping_file;	// free하면 매핑 안을 못 읽으니까 먼저 꺼내 둬요
+			free(mapping);
+			file_close(file);
+		}
+		free(curr->fdt);	// process_init에서 malloc한 테이블이에요
+	}
 
 	/* 3) 종료 메시지예요.
 	 * 부모가 없는 프로세스는 위 1)을 통째로 건너뛰니까, 여기서 한 번 더 -1을 정해요.
