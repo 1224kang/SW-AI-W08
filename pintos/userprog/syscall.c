@@ -383,7 +383,8 @@ check_user_memory_with_size(void *addr, unsigned size){
 	}
 
 	if(size==0){
-		sys_exit(-1);
+		check_user_memory(p,cur);
+		return;
 	}
 	
 	const char *pg_start=pg_round_down(addr);
@@ -392,14 +393,7 @@ check_user_memory_with_size(void *addr, unsigned size){
 
 	while(cur_pg<=pg_end){
 		//커널 공간을 가리키는 포인터인지 검사
-		if(is_kernel_vaddr(cur_pg)){
-			sys_exit(-1);
-		}
-
-		//매핑 되지 않은 가상 메모리를 가리키는 포인터인지 검사
-		if(pml4_get_page(cur->pml4,cur_pg)==NULL){
-			sys_exit(-1);
-		}
+		check_user_memory(cur_pg,cur);
 
 		//다음 페이지 경계로 이동
 		cur_pg=pg_round_down(cur_pg+PGSIZE);
@@ -420,16 +414,9 @@ check_user_memory_without_size(void *addr){
 
 	char const *cur_p=p; 
 	while(true){
-		//커널 공간을 가리키는 포인터인지 검사
-		if(is_kernel_vaddr(cur_p)){
-			sys_exit(-1);
-		}
 
-		//매핑 되지 않은 가상 메모리를 가리키는 포인터인지 검사
-		if(pml4_get_page(cur->pml4,cur_p)==NULL){
-			sys_exit(-1);
-		}	
-
+		check_user_memory(cur_p,cur);
+		
 		//종료 조건
 		if(*cur_p=='\0'){
 			break;
@@ -439,4 +426,14 @@ check_user_memory_without_size(void *addr){
 		cur_p+=1;
 	}
 		
+}
+
+void
+check_user_memory(char *p,struct thread *cur){
+	if(is_kernel_vaddr(p)){
+			sys_exit(-1);
+		}
+	if(pml4_get_page(cur->pml4,p)==NULL){
+		sys_exit(-1);
+	}
 }
