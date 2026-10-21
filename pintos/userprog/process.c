@@ -85,7 +85,9 @@ initd (void *f_name) {
 }
 
 /* 현재 프로세스를 `name`이라는 이름으로 복제해요. 새 프로세스의 스레드 id를 돌려주고,
- * 스레드를 못 만들면 TID_ERROR를 돌려줘요. */
+ * 스레드를 못 만들면 TID_ERROR를 돌려줘요.
+ * 자식이 복제를 다 마칠 때까지 여기서 기다렸다가, 자식이 적어 준 결과를 돌려줘요 (#111).
+ * 스레드를 만든 뒤에 복제가 실패해도 TID_ERROR가 돌아와요. */
 tid_t
 process_fork (const char *name, struct intr_frame *if_) {
 	/* 현재 스레드를 새 스레드로 복제해요. */
@@ -94,9 +96,17 @@ process_fork (const char *name, struct intr_frame *if_) {
 	struct fork_args fork;
 	fork.parents = thread_current();
 	fork.if_ = if_;
-
-	return thread_create (name,
+	/* thread_create 전에 초기화해요. 뒤에서 하면 자식이 먼저 up한 걸 지워 버릴 수 있어요 */
+	sema_init(&thread_current()->fork_sema, 0);
+	thread_current()->fork_result = 0;
+	tid_t create_result = thread_create (name,
 			PRI_DEFAULT, __do_fork, &fork);
+	/* 스레드를 못 만들었으면 알려 줄 자식이 없어서, 기다리지 않고 바로 돌아가요 */
+	if (create_result == TID_ERROR) return TID_ERROR;
+	/* 자식이 fork_notify로 결과를 적고 up할 때까지 잠들어요. 순서가 up → down이어도 값이 남아 있어서 괜찮아요 */
+	sema_down(&thread_current()->fork_sema);
+
+	return thread_current()->fork_result;	// 성공이면 자식 tid, 실패면 TID_ERROR
 }
 
 #ifndef VM
