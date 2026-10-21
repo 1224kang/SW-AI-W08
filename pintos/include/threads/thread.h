@@ -104,7 +104,6 @@ struct thread {
 	struct lock *lock_to_stop;			// 어떤 lock때문에 멈춰 있는지
 	struct list_elem donation_elem;		// 다른 스레드의 기부해준 스레드 목록에 들어가기 위함 
 
-	int64_t pml4;
 	int nice;							// nice 정의 (다른 스레드에게 얼마나 양보적인지)(범위는 -20 ~ 20)
 	int recent_cpu;						// recent_cpu 정의 (각 프로세스가 최근에 cpu 시간을 얼마나 사용했는지)
 	struct list_elem allelem;			// all_list에 넣기 위함
