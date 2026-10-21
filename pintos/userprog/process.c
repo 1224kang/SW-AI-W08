@@ -31,6 +31,7 @@ static void __do_fork (void *);
 static int parse_words(char *arg[], char *word,const char *parse_word);
 static int user_stack_push (char *arg, struct intr_frame *if_);
 static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_);
+static void fork_notify (tid_t tid, struct thread *);
 
 
 
@@ -84,12 +85,28 @@ initd (void *f_name) {
 }
 
 /* 현재 프로세스를 `name`이라는 이름으로 복제해요. 새 프로세스의 스레드 id를 돌려주고,
- * 스레드를 못 만들면 TID_ERROR를 돌려줘요. */
+ * 스레드를 못 만들면 TID_ERROR를 돌려줘요.
+ * 자식이 복제를 다 마칠 때까지 여기서 기다렸다가, 자식이 적어 준 결과를 돌려줘요 (#111).
+ * 스레드를 만든 뒤에 복제가 실패해도 TID_ERROR가 돌아와요. */
 tid_t
-process_fork (const char *name, struct intr_frame *if_ UNUSED) {
+process_fork (const char *name, struct intr_frame *if_) {
 	/* 현재 스레드를 새 스레드로 복제해요. */
-	return thread_create (name,
-			PRI_DEFAULT, __do_fork, thread_current ());
+
+	/* 자식에게 넘길 인자 묶음이에요. 지역 변수라서 자식이 다 읽기 전에 이 함수가 끝나면 안 돼요 (#111) */
+	struct fork_args fork;
+	fork.parents = thread_current();
+	fork.if_ = if_;
+	/* thread_create 전에 초기화해요. 뒤에서 하면 자식이 먼저 up한 걸 지워 버릴 수 있어요 */
+	sema_init(&thread_current()->fork_sema, 0);
+	thread_current()->fork_result = 0;
+	tid_t create_result = thread_create (name,
+			PRI_DEFAULT, __do_fork, &fork);
+	/* 스레드를 못 만들었으면 알려 줄 자식이 없어서, 기다리지 않고 바로 돌아가요 */
+	if (create_result == TID_ERROR) return TID_ERROR;
+	/* 자식이 fork_notify로 결과를 적고 up할 때까지 잠들어요. 순서가 up → down이어도 값이 남아 있어서 괜찮아요 */
+	sema_down(&thread_current()->fork_sema);
+
+	return thread_current()->fork_result;	// 성공이면 자식 tid, 실패면 TID_ERROR
 }
 
 #ifndef VM
@@ -130,11 +147,12 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *       넘겨 줘야 해요. */
 static void
 __do_fork (void *aux) {
+	struct fork_args *parents_arg = aux;
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
+	struct thread *parent = parents_arg->parents;
 	struct thread *current = thread_current ();
-	/* TODO: 어떻게든 parent_if를 넘겨 받아요. (즉 process_fork()의 if_) */
-	struct intr_frame *parent_if;
+	/* parent_if는 process_fork가 fork_args에 담아 보낸 부모의 if_예요 (#111) */
+	struct intr_frame *parent_if = parents_arg->if_;
 	bool succ = true;
 
 	/* 1. CPU 문맥을 지역 스택으로 읽어 와요. */
@@ -164,9 +182,15 @@ __do_fork (void *aux) {
 	process_init ();
 
 	/* 마지막으로, 새로 만든 프로세스로 전환해요. */
-	if (succ)
+	if (succ) {
+		fork_notify(current->tid, parent);
+		/* 자식의 fork()는 0을 돌려받아야 해요. 복사해 온 if_의 rax에는 syscall 번호(SYS_FORK = 2)가 들어 있어서 여기서 바꿔요.
+		 * 부모 프레임(parent_if)이 아니라 자식 사본에 써야 부모 반환값(tid)이 그대로 남아요 (#111) */
+		if_.R.rax = 0;
 		do_iret (&if_);
+	}
 error:
+	fork_notify(TID_ERROR, parent);
 	thread_exit ();
 }
 
@@ -707,6 +731,15 @@ static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_)
 	 * 그래도 보통 함수 호출과 스택 모양을 맞추려고 0을 8바이트 넣어 둬요. */
 	if_->rsp -= 8;
 	memset((void*) if_->rsp, 0, 8);
+}
+
+/* 자식이 복제를 마쳤다고 부모에게 알려요 (#111). 성공이면 자식 tid, 실패면 TID_ERROR를 받아요.
+ * 부모 칸에 결과를 먼저 쓰고 그다음 up해요. 그래야 부모가 깨어났을 때 결과가 이미 들어 있어요.
+ * 성공이면 do_iret 앞, 실패면 thread_exit 앞에서 불러요. 두 곳 모두 이 다음에는 돌아오지 않아서 앞에 둬야 해요. */
+static void fork_notify (tid_t tid, struct thread *parents)
+{
+	parents->fork_result = tid;
+	sema_up(&parents->fork_sema);
 }
 
 #ifndef VM
