@@ -31,6 +31,7 @@ static void __do_fork (void *);
 static int parse_words(char *arg[], char *word,const char *parse_word);
 static int user_stack_push (char *arg, struct intr_frame *if_);
 static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_);
+static void fork_notify (tid_t tid, struct thread *);
 
 
 
@@ -171,9 +172,12 @@ __do_fork (void *aux) {
 	process_init ();
 
 	/* 마지막으로, 새로 만든 프로세스로 전환해요. */
-	if (succ)
+	if (succ) {
+		fork_notify(current->tid, parent);
 		do_iret (&if_);
+	}
 error:
+	fork_notify(TID_ERROR, parent);
 	thread_exit ();
 }
 
@@ -714,6 +718,15 @@ static void user_stack_args_push (char *arg[], int argc, struct intr_frame *if_)
 	 * 그래도 보통 함수 호출과 스택 모양을 맞추려고 0을 8바이트 넣어 둬요. */
 	if_->rsp -= 8;
 	memset((void*) if_->rsp, 0, 8);
+}
+
+/* 자식이 복제를 마쳤다고 부모에게 알려요 (#111). 성공이면 자식 tid, 실패면 TID_ERROR를 받아요.
+ * 부모 칸에 결과를 먼저 쓰고 그다음 up해요. 그래야 부모가 깨어났을 때 결과가 이미 들어 있어요.
+ * 성공이면 do_iret 앞, 실패면 thread_exit 앞에서 불러요. 두 곳 모두 이 다음에는 돌아오지 않아서 앞에 둬야 해요. */
+static void fork_notify (tid_t tid, struct thread *parents)
+{
+	parents->fork_result = tid;
+	sema_up(&parents->fork_sema);
 }
 
 #ifndef VM
