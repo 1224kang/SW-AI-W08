@@ -116,28 +116,37 @@ static bool
 duplicate_pte (uint64_t *pte, void *va, void *aux) {
 	struct thread *current = thread_current ();
 	struct thread *parent = (struct thread *) aux;
-	void *parent_page;
-	void *newpage;
-	bool writable;
+	void *parent_page; //부모 페이지 내용을 커널이 읽을 때 쓰는 주소 (pml4_get_page 결과라 항상 커널 영역 주소)
+	void *newpage; //자식용으로 새로 받은 페이지 (이것도 커널 주소. va와의 연결은 5번에서 함)
+	bool writable; //부모 페이지가 쓰기 가능했는지. 자식도 같은 권한으로 맞춤
 
-	/* 1. TODO: parent_page가 커널 페이지면 바로 return 해요. */
-
+	/* 1. TODO: va가 커널 페이지면 바로 return 해요. + va는 사용자 프로세스가 보는 주소이다 (이전엔 parent_page가 검사대상이였는데, 흐름으로 보면 parent page가 값이 없을때 검사하는건 말도안됨) */
+	if(is_kernel_vaddr(va)) {return true;} //커널 영역은 복사하지 않고 건너뜀. true여야 pml4_for_each가 다음 페이지로 계속 감
 	/* 2. 부모의 pml4(page map level 4)에서 VA를 찾아요. */
 	parent_page = pml4_get_page (parent->pml4, va);
 
 	/* 3. TODO: 자식용으로 새 PAL_USER 페이지를 할당하고, 그 결과를
 	 *    TODO: NEWPAGE에 넣어요. */
+	newpage=palloc_get_page(PAL_USER); //사용자 풀에서 페이지 하나(4KB)를 받음. 메모리가 없으면 NULL
+	if(newpage==NULL){
+		palloc_free_page(newpage);
+		return false;
+	}  //메모리가 부족하다면 null이 담기니, newpage 에 null 이라면 잘못된 값을 받아오기 때문에 return false로 실패처리 
 
 	/* 4. TODO: 부모의 페이지를 새 페이지로 복제하고,
 	 *    TODO: 부모의 페이지가 쓰기 가능한지 확인해요 (그 결과에 맞게
 	 *    TODO: WRITABLE을 정해요). */
-
+	memcpy(newpage, parent_page, PGSIZE); //부모 페이지 4KB 내용을 자식 페이지로 통째로 복사 (받는 쪽, 주는 쪽, 크기 순)
+	writable = is_writable(pte); //부모 PTE의 쓰기 비트(PTE_W)를 읽음. 코드처럼 읽기 전용이던 페이지는 자식도 읽기 전용
+	
 	/* 5. 새 페이지를 자식의 페이지 테이블에 VA 주소로, WRITABLE
 	 *    권한을 붙여서 추가해요. */
 	if (!pml4_set_page (current->pml4, va, newpage, writable)) {
 		/* 6. TODO: 페이지를 넣는 데 실패하면 에러 처리를 해요. */
+		palloc_free_page(newpage); //연결에 실패한 페이지는 아무도 안 쓰니 반납 (메모리 누수 방지)
+		return false; //false → pml4_for_each가 멈추고 __do_fork가 fork 실패로 처리
 	}
-	return true;
+	return true; //이 페이지 복사 성공 → 다음 페이지로
 }
 #endif
 
