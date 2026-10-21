@@ -350,7 +350,16 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	}
 
-		// case SYS_FORK:
+	/* fork(thread_name): 지금 프로세스를 복제해요 (#111).
+	 * 부모는 process_fork 안에서 자식의 복제가 끝날 때까지 기다렸다가 돌아와요.
+	 * 성공이면 자식 tid, 실패면 TID_ERROR(-1)를 그대로 돌려줘요.
+	 * exec와 달리 실패해도 부모의 주소 공간은 멀쩡해서 sys_exit하지 않아요. multi-oom은 -1을 받고 계속 달리는지 봐요. */
+	case SYS_FORK: {
+		char* name = f->R.rdi;
+		tid_t tid = process_fork(name, f);
+		f->R.rax = tid;
+		break;
+	}
 			
 	}
 
