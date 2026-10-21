@@ -152,7 +152,7 @@ __do_fork (void *aux) {
 	struct thread *parent = parents_arg->parents; //부모 프로세스
 	struct thread *current = thread_current (); //자식 프로세스
 	/* TODO: 어떻게든 parent_if를 넘겨 받아요. (즉 process_fork()의 if_) */
-	struct intr_frame *parent_if;
+	struct intr_frame *parent_if = parents_arg->if_;
 	bool succ = true;
 
 	/* 1. CPU 문맥을 지역 스택으로 읽어 와요. */
