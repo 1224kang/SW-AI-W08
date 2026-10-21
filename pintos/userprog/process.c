@@ -131,8 +131,8 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
 static void
 __do_fork (void *aux) {
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux;
-	struct thread *current = thread_current ();
+	struct thread *parent = (struct thread *) aux; //부모 프로세스
+	struct thread *current = thread_current (); //자식 프로세스
 	/* TODO: 어떻게든 parent_if를 넘겨 받아요. (즉 process_fork()의 if_) */
 	struct intr_frame *parent_if;
 	bool succ = true;
@@ -140,7 +140,7 @@ __do_fork (void *aux) {
 	/* 1. CPU 문맥을 지역 스택으로 읽어 와요. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
 
-	/* 2. 페이지 테이블(PT)을 복제해요 */
+	/* 2. 자식 프로세스의 페이지 테이블(PML4)을 생성합니다. */
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
 		goto error;
@@ -162,6 +162,40 @@ __do_fork (void *aux) {
 	 * TODO:       돌아오면 안 돼요. */
 
 	process_init ();
+	
+	//자식 프로세스 fd_table 복사
+	current->fdt->next_fd_index=parent->fdt->next_fd_index;
+
+	struct list *fd_list=&parent->fdt->fd_list;
+	struct list_elem *e=list_begin(fd_list);
+
+	//부모 프로세스를 순회하면서 복사 
+	while(e!=list_end(fd_list)){
+		//부모 프로세스의 file_fd_mapping
+		struct file_fd_mapping *parent_mapping=list_entry(e,struct file_fd_mapping,file_fd_elem);
+		
+		//부모 프로세스의 파일을 복제한 새로운 file* 포인터 
+		struct file* new_file=file_duplicate(parent_mapping->mapping_file);	
+		//복제 실패하는 경우 
+		if(new_file==NULL){ 
+			//fork 실패 함수 호출
+		}
+
+		//자식 프로세스의 새로운 file_fd_mapping 할당
+		struct file_fd_mapping *new_fd_mapping=malloc(sizeof(struct file_fd_mapping));
+		if(new_fd_mapping==NULL){ //malloc 실패
+			free(new_fd_mapping);
+			break;
+		}
+
+		new_fd_mapping->index=parent_mapping->index;
+		new_fd_mapping->mapping_file=new_file;
+		list_push_back(&current->fdt->fd_list,&new_fd_mapping->file_fd_elem);
+		
+		e=list_next(e);
+	}
+
+
 
 	/* 마지막으로, 새로 만든 프로세스로 전환해요. */
 	if (succ)
