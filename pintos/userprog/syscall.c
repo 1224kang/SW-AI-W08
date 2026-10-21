@@ -383,7 +383,14 @@ check_user_memory_with_size(void *addr, unsigned size){
 	}
 
 	if(size==0){
-		sys_exit(-1);
+		if(is_kernel_vaddr(addr)){
+			sys_exit(-1);
+		}
+		if(pml4_get_page(cur->pml4,addr)==NULL){
+			sys_exit(-1);
+		}
+		return;
+
 	}
 	
 	const char *pg_start=pg_round_down(addr);
